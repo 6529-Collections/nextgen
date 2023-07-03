@@ -2625,7 +2625,7 @@ contract NextGen is ERC721Enumerable, Ownable {
         collectionAdditionalData[_collectionID].collectionSalesPercentage = _newCollectionSalesPercentage;
     }
 
-    // function that withdrawls any balance from the smart contract
+    // function to withdrawal any balance from the smart contract
 
     function withdraw() public onlyOwner {
         uint balance = address(this).balance;
