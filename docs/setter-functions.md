@@ -2,7 +2,9 @@
 [How to create a Collection?](#createCollection)\
 [How to add data on a Collection?](#addCollectionData)\
 [How to set various collection minting phases?](#setCollectionPhases)\
-[How to modify a collection's minting status?](#mintingStatus)\
+[How to modify the minting status of a collection?](#mintingStatus)\
+[How to airdrop tokens?](#airdrop)\
+[How to mint tokens?](#minting)\
 
 
 <div id='createCollection'/>
@@ -78,7 +80,7 @@
 
 ### How to set various collection minting phases?
 
-<b>Purpose:</b> The <i>setCollectionPhases(..)</i> allows you to set the start and endtimes for allowlist and public minting. In addition for the allowlist minting you need to set the MerkleRoot that will be used for verification purposes when the allowlist minting is active.
+<b>Purpose:</b> The <i>setCollectionPhases(..)</i> function allows you to set the start and endtimes for allowlist and public minting. In addition for the allowlist minting you need to set the MerkleRoot that will be used for verification purposes when the allowlist minting is active.
 
 <b>Notes:</b> 
 * This function can be called by the contract deployer or a contract administrator or a collection administrator.
@@ -107,5 +109,56 @@
 
 <div id='mintingStatus'/>
 
-### How to modify a collection's minting status?
+### How to modify the minting status of a collection?
+
+<b>Purpose:</b> The <i>changeCollectionMintStatus(..)</i> function allows you to enable/disable the minting status of a collection.
+
+<b>Notes:</b> 
+* This function can only be called by the contract deployer or a contract administrator.
+
+<!-- end of the list -->
+
+    /**
+      * @dev Set the minting status of a collection.
+      * @param _collectionID Refers to the collection id for which the minting status will be modified.
+      * @param _status Refers to minting status, if true == minting is active, otherwise minting is not enable.
+    */
+ 
+    function createCollection(
+      uint256 _collectionID,
+      bool _status,
+    ) public AdminRequired;
+
+<div id='airdrop'/>
+
+### How to airdrop tokens?
+
+<b>Purpose:</b> The <i>airDropTokens(..)</i> function allows you to aidrop tokens of a specific collection to a list of recipients.
+
+<b>Notes:</b> 
+* This function can only be called by the contract deployer or a contract administrator.
+* You can only airdrop tokens of a specific collection.
+* You can only airdrop the same amount of tokens during each call of the function.
+* For each recipient you also need to pass additional txInfo.
+
+<!-- end of the list -->
+
+    /**
+      * @dev Aidrop tokens of a specific collection to a list of recipients.
+      * @param _recipients Refers to the list of recipients who will receive the airdrop.
+      * @param txInfo Refers to a list that contains the additional data that we store on-chain for each airdropped token.
+      * @param _collectionID Refers to collection for whcih the airdrop will take place.
+      * @param _numberOfTokens Refers to the number of tokens that will be airdroped.    
+    */
+ 
+    function airDropTokens(
+      address[] memory _recipients,
+      string[] memory txInfo,
+      uint256 _collectionID,
+      uint256 _numberOfTokens
+    ) public AdminRequired;
+
+<div id='minting'/>
+
+### How to mint tokens?
 
