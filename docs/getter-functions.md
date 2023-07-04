@@ -47,7 +47,7 @@
 
     /**
       * @dev Retrieve the token indices of a collection.
-      * @param _collectionID Referes to the specific collection for which the reserved token indices will be returned.
+      * @param _collectionID Refers to the specific collection for which the reserved token indices will be returned.
     */
  
     function viewTokensIndexForCollection(
@@ -113,7 +113,7 @@
 <!-- end of the list -->
 
     /**
-      * @dev Retrieve a collection's additional data.
+      * @dev Retrieve collection's additional data.
       * @param _collectionID Refers to the specific collection for which the additional data will be returned.
     */
  
@@ -138,7 +138,7 @@
 
     /**
       * @dev Retrieve the collection phases times and merkle root of a collection.
-      * @param _collectionID Refers to the specific collection for which the additional data will be returned.
+      * @param _collectionID Refers to the specific collection for which the collection phases data will be returned.
     */
  
     function retrieveCollectionPhases(
@@ -217,7 +217,7 @@
 
 ### How to find the amount of tokens airdropped/minted during the allowlist or public minting?
 
-<b>Purpose:</b> The <i>retrieveTokensPerAddress(..)</i> function retrieves the data stored on the smart contract for a specific token id.
+<b>Purpose:</b> The <i>retrieveTokensPerAddress(..)</i> function retrieves the tokens airdropped/minted during the allowlist or public minting.
 
 <b>Notes:</b> 
 * The collection must exist.
@@ -225,7 +225,7 @@
 <!-- end of the list -->
 
     /**
-      * @dev Retrieve the token data stored on-chain for a token id.
+      * @dev Retrieve the tokens airdropped/minted during the allowlist or public minting given an address.
       * @param _collectionID Refers to the specific collection for which the airdropped/minted tokens will be returned.
       * @param _address Refers to the specific wallet address for which the amount of tokens during each phase will be returned.
     */
