@@ -8,7 +8,7 @@
 [How to get the generative script of a tokenId?](#GenerativeScript)\
 [How to get the total supply of a collection?](#totalSupply)\
 [How to get the token data stored on-chain for each token id?](#tokenData)\
-[How to find the amount of tokens airdropped/minted during the allowlist or public minting?](#mintedTokens)\
+[How to find the amount of tokens airdropped/minted during the allowlist or public minting?](#mintedTokens)
 
 <div id='tokenURI'/>
 
