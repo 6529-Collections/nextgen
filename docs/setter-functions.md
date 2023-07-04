@@ -27,7 +27,7 @@
 <b>Notes:</b> 
 * This function can only be called by the contract deployer or a contract administrator.
 * Once the function is executed the smart contract autoassigns an id to the newly created collection.
-* Next you need to add the additional data for the newly created collection.
+* You need to add the additional data for the newly created collection to be able to start the minting process.
 
 <!-- end of the list -->
 
@@ -58,13 +58,13 @@
 
 ### How to add data on a Collection?
 
-<b>Purpose:</b> The <i>addCollectionData(..)</i> function helps you add additional data for a Collection such as mintcost, max public purchases, total supply etc.
+<b>Purpose:</b> The <i>addCollectionData(..)</i> function allows you to add the additional data for a Collection such as mintcost, max public purchases, total supply etc.
 
 <b>Notes:</b> 
 * This function can only be called by the contract deployer or a contract administrator.
-* Once the function is executed the smart contract reserves specific min and max indeces for the collection's token ids.
-* The collections circulating supply at start is 0.
-* Next you need to set the phases for the collection.
+* Once the function is executed the smart contract reserves specific min and max indices for the collection.
+* The collection's circulating supply starts at 0.
+* You need to set the minting phases for the collection to be able to start the minting process.
 
 <!-- end of the list -->
 
@@ -89,9 +89,9 @@
 
 <div id='setCollectionPhases'/>
 
-### How to set various collection minting phases?
+### How to set the various collection minting phases?
 
-<b>Purpose:</b> The <i>setCollectionPhases(..)</i> function allows you to set the start and endtimes for allowlist and public minting. In addition for the allowlist minting you need to set the MerkleRoot that will be used for verification purposes when the allowlist minting is active.
+<b>Purpose:</b> The <i>setCollectionPhases(..)</i> function allows you to set the start and endtimes for allowlist and public minting. For the allowlist minting you need to set also the MerkleRoot that will be used for verification purposes when the allowlist minting is active.
 
 <b>Notes:</b> 
 * This function can be called by the contract deployer or a contract administrator or a collection administrator.
@@ -122,7 +122,7 @@
 
 ### How to modify the minting status of a collection?
 
-<b>Purpose:</b> The <i>changeCollectionMintStatus(..)</i> function allows you to enable/disable the minting status of a collection.
+<b>Purpose:</b> The <i>changeCollectionMintStatus(..)</i> function allows you to enable/disable the minting process of a collection.
 
 <b>Notes:</b> 
 * This function can only be called by the contract deployer or a contract administrator.
@@ -149,7 +149,6 @@
 <b>Notes:</b> 
 * This function can only be called by the contract deployer or a contract administrator.
 * You can only airdrop tokens of a specific collection.
-* You can only airdrop the same amount of tokens during each call of the function.
 * For each recipient you also need to pass additional token data.
 
 <!-- end of the list -->
@@ -209,7 +208,7 @@
 
 ### How to send the collected funds to the Artist?
 
-<b>Purpose:</b> The <i>payArtist(..)</i> function is used to send the funds colelcted during minting to the Artist.
+<b>Purpose:</b> The <i>payArtist(..)</i> function is used to send the funds collected during minting..
 
 <b>Notes:</b> 
 * This function can only be called by the contract deployer or a contract administrator.
@@ -218,7 +217,7 @@
 <!-- end of the list -->
 
     /**
-      * @dev Send collected funds to Artist and Team.
+      * @dev Send funds collected during minting to the Artist and Team.
       * @param _collectionID Refers to collection for which the collected funds will be sent.
     */
  
@@ -230,17 +229,17 @@
 
 ### How to sign a collection?
 
-<b>Purpose:</b> The <i>artistSignature(..)</i> function is used by artists to sign the collection that they created.
+<b>Purpose:</b> The <i>artistSignature(..)</i> function is used by the artists to sign the collection that they have created.
 
 <b>Notes:</b> 
 * This function can only be called by an artist.
-* The artist ETH public address needs to be assigned when adding a collection's additional data.
+* The artist ETH public address needs to be assigned when adding the collection's additional data.
 
 <!-- end of the list -->
 
     /**
       * @dev Artists sign their own collections.
-      * @param _collectionID Refers to collection for which the artist is allowed to add his signature.
+      * @param _collectionID Refers to the collection for which the artist is allowed to add his signature.
       * @param _signature Refers to written text/signature of the artist that will be stored on-chain.
     */
  
@@ -253,7 +252,7 @@
 
 ### How to register a global admin on the smart contract?
 
-<b>Purpose:</b> The <i>registerAdmin(..)</i> function is used for registering global admins on the smart contract.
+<b>Purpose:</b> The <i>registerAdmin(..)</i> function is used to register global admins on the smart contract.
 
 <b>Notes:</b> 
 * This function can only be called by the contract deployer.
@@ -284,7 +283,7 @@
 
     /**
       * @dev Register an admin on a specific collection.
-      * @param _collectionID Refers to collection for which an admin will be registered.
+      * @param _collectionID Refers to the collection for which an admin will be registered.
       * @param _address Refers to the ETH public address of the admin.
       * @param _status Refers to the status of a collection admin, if true then the ETH address is registered as a collection admin, otherwise it's not registered.
     */
@@ -299,7 +298,7 @@
 
 ### How to modify the metadata view of a collection?
 
-<b>Purpose:</b> The <i>changeMetadataView(..)</i> function is used for changing how metadata will be displayed for a specific collection when the <i>tokenURI()</i> function is called.
+<b>Purpose:</b> The <i>changeMetadataView(..)</i> function is used for changing how metadata will be displayed for a collection when the <i>tokenURI()</i> function is called.
 
 <b>Notes:</b> 
 * This function can only be called by the contract deployer or a contract administrator.
@@ -308,7 +307,7 @@
 
     /**
       * @dev Change the metadata view for a collection.
-      * @param _collectionID Refers to collection for which the view will be updated.
+      * @param _collectionID Refers to the collection for which the metadata view will be modified.
       * @param _status Refers to the view status of a collection, if true the tokenURI() function once called will return the metadata of a token id directly from on-chain, 
         otherwise it will return the tokenURI as a link.
     */
@@ -322,7 +321,7 @@
 
 ### How to modify the on-chain token data of an existing token id?
 
-<b>Purpose:</b> The <i>changeTokenData(..)</i> function is used for changing the token data of an already existing token id.
+<b>Purpose:</b> The <i>changeTokenData(..)</i> function is used to change the token data of an already existing token.
 
 <b>Notes:</b> 
 * This function can only be called by the contract deployer or a contract administrator.
@@ -330,8 +329,8 @@
 <!-- end of the list -->
 
     /**
-      * @dev Change the token data of an existing token id.
-      * @param _tokenId Refers to the existing token id that the token data will be modified.
+      * @dev Change the token data of an existing token.
+      * @param _tokenId Refers to the existing token for which the token data will be modified.
       * @param newData Refers to the updated token data that will replace the existing ones.
     */
  
@@ -353,8 +352,8 @@
 
     /**
       * @dev Burn an existing token id.
-      * @param _collectionId Refers to the collection for which the token id will be burnt.
-      * @param _tokenId Refers to the existing token id that will be burnt.
+      * @param _collectionId Refers to the collection for which the token will be burnt.
+      * @param _tokenId Refers to the existing token that will be burnt.
     */
  
     function burn(
@@ -376,7 +375,7 @@
 
     /**
       * @dev Initiliaze the burn to mint functionality.
-      * @param _burnCollectionID Refers to the collection for which a token id will be burnt.
+      * @param _burnCollectionID Refers to the collection for which a token will be burnt.
       * @param _mintCollectionID Refers to the collection for which a token will be minted.
       * @param _status Refers to the initilization status, if true it means that the burn to mint functionality has been initiliazed, otherwise no initilization was setup.
     */
@@ -391,7 +390,7 @@
 
 ### How to burn an existing token and mint a new one?
 
-<b>Purpose:</b> The <i>burnToMint(..)</i> function is used to burn an existing token and mint a new token.
+<b>Purpose:</b> The <i>burnToMint(..)</i> function is used to burn an existing token and mint a new one.
 
 <b>Notes:</b> 
 * This function can only be called from a token owner or an approved adress.
@@ -400,7 +399,7 @@
 <!-- end of the list -->
 
     /**
-      * @dev Burn an existing token and mints a new one.
+      * @dev Burn an existing token and mint a new one.
       * @param _burnCollectionID Refers to the collection for which a token id will be burnt.
       * @param _tokenId Refers to the token id that will be burnt.
       * @param _mintCollectionID Refers to the collection for which a new token will be minted.
@@ -420,7 +419,7 @@
 
 <b>Notes:</b> 
 * This function can only be called by the contract deployer or a contract administrator.
-* The collection needs to be created first and then updated if needed.
+* The collection needs to be created first.
 
 <!-- end of the list -->
 
@@ -453,18 +452,18 @@
 
 ### How to update the script of a Collection using an index?
 
-<b>Purpose:</b> The <i>updateCollectionScriptByIndex(..)</i> function is used to update a specific part of the collection's script.
+<b>Purpose:</b> The <i>updateCollectionScriptByIndex(..)</i> function is used to update a specific part of a collection's script.
 
 <b>Notes:</b> 
 * This function can only be called by the contract deployer or a contract administrator.
-* The collection needs to be created first and then updated if needed.
+* The collection needs to be created first.
 
 <!-- end of the list -->
 
     /**
       * @dev Update an existing collection script.
       * @param _collectionID Refers to the collection that the script will be updated.
-      * @param _index Refers to single part of the script that will be updated.
+      * @param _index Refers to the single part of the script that will be updated.
       * @param _newCollectionIndexScript Refers to updated script.
     */
  
@@ -482,7 +481,7 @@
 
 <b>Notes:</b> 
 * This function can only be called by the contract deployer or a contract administrator.
-* The collection needs to be created, add initial data and then update them if needed.
+* The collection needs to be created and initial data needs to be added.
 * The total supply of a collection cannot be updated.
 
 <!-- end of the list -->
