@@ -3,8 +3,8 @@
 /**
  *
  *  @title: NextGen Contract
- *  @date: 03-July-2023 
- *  @version: 10.16.17
+ *  @date: 07-July-2023 
+ *  @version: 10.16.19
  *  @author: 6529 team
  */
 
@@ -2414,7 +2414,13 @@ contract NextGen is ERC721Enumerable, Ownable {
     mapping (uint256 => string) public artistsSignatures;
 
     // tokens additional metadata
-    mapping (uint256 => string) private tokenData; 
+    mapping (uint256 => string) public tokenData;
+
+    // token Image
+    mapping (uint256 => string) private tokenImage;
+
+    // collectionFreeze Thumbnail
+    mapping (uint256 => bool) public collectionFreeze; 
 
     // NFTdelegation contract variable
     IDelegationManagementContract private dmc;
@@ -2458,9 +2464,8 @@ contract NextGen is ERC721Enumerable, Ownable {
     // function to add the additional data of a collection
 
     function addCollectionData(uint256 _collectionID, address _collectionArtistAddress, uint256 _collectionMintCost, uint256 _maxCollectionPurchases, uint256 _collectionTotalSupply, uint256 _collectionSalesPercentage) public AdminRequired {
-        require(isCollectionCreated[_collectionID] == true, "Create collection");
-        require(wereDataAdded[_collectionID] == false, "Data added");
-        require(_collectionTotalSupply <= 10000000000, "Total supply max");
+        require((isCollectionCreated[_collectionID] == true) && (wereDataAdded[_collectionID] == false), "No collection/data");
+        require(_collectionTotalSupply <= 10000000000, "Modify supply");
         require(_collectionSalesPercentage <= 100, "Wrong %");
         collectionAdditionalData[_collectionID].collectionArtistAddress = _collectionArtistAddress;
         collectionAdditionalData[_collectionID].collectionMintCost = _collectionMintCost;
@@ -2513,7 +2518,7 @@ contract NextGen is ERC721Enumerable, Ownable {
     {
         require(collectionAdditionalData[_collectionID].isCollectionActive ==true, "No minting");
         if (block.timestamp >= collectionPhases[_collectionID].allowlistStartTime && block.timestamp<=collectionPhases[_collectionID].allowlistEndTime) {
-            require(_numberOfTokens <=_maxAllowance, "no of tokens must be less than maxAllowance");
+            require(_numberOfTokens <=_maxAllowance, "Less than maxAllowance");
             bytes32 node;
             if (_delegator != 0x0000000000000000000000000000000000000000) {
                 bool isAllowedToMint;
@@ -2597,14 +2602,13 @@ contract NextGen is ERC721Enumerable, Ownable {
 
     // function to update Collection Info
 
-    function updateCollectionInfo(uint256 _collectionID, string memory _newCollectionName, string memory _newCollectionArtist, string memory _newCollectionDescription, string memory _newCollectionWebsite, string memory _newCollectionLicense, string memory _newCollectionBaseURI, string memory _newCollectionLibrary, string[] memory _newCollectionScript) public AdminRequired {
-        require(isCollectionCreated[_collectionID] == true, "No Collection");
+    function updateCollectionInfo(uint256 _collectionID, string memory _newCollectionName, string memory _newCollectionArtist, string memory _newCollectionDescription, string memory _newCollectionWebsite, string memory _newCollectionLicense, string memory _newCollectionLibrary, string[] memory _newCollectionScript) public AdminRequired {
+        require((isCollectionCreated[_collectionID] == true) && (collectionFreeze[_collectionID] == false), "Not allowed");
         collectionInfo[_collectionID].collectionName = _newCollectionName;
         collectionInfo[_collectionID].collectionArtist = _newCollectionArtist;
         collectionInfo[_collectionID].collectionDescription = _newCollectionDescription;
         collectionInfo[_collectionID].collectionWebsite = _newCollectionWebsite;
         collectionInfo[_collectionID].collectionLicense = _newCollectionLicense;
-        collectionInfo[_collectionID].collectionBaseURI = _newCollectionBaseURI;
         collectionInfo[_collectionID].collectionLibrary = _newCollectionLibrary;
         collectionInfo[_collectionID].collectionScript = _newCollectionScript;
     }
@@ -2612,13 +2616,15 @@ contract NextGen is ERC721Enumerable, Ownable {
     // function to update Collection Script By Index
 
     function updateCollectionScriptByIndex(uint256 _collectionID, uint256 _index, string memory _newCollectionIndexScript) public AdminRequired {
+        require((isCollectionCreated[_collectionID] == true) && (collectionFreeze[_collectionID] == false), "Not allowed");
         collectionInfo[_collectionID].collectionScript[_index] = _newCollectionIndexScript;
     }
 
     // function to update collection additional data
 
     function updateCollectionAdditionalData(uint256 _collectionID, address _newCollectionArtistAddress, uint256 _newCollectionMintCost, uint256 _newMaxCollectionPurchases, uint256 _newCollectionSalesPercentage) public AdminRequired {
-        require(wereDataAdded[_collectionID] == true, "No data were set");
+        require(wereDataAdded[_collectionID] == true && (collectionFreeze[_collectionID] == false), "Not allowed");
+        require(_newCollectionSalesPercentage <= 100, "Wrong %");
         collectionAdditionalData[_collectionID].collectionArtistAddress = _newCollectionArtistAddress;
         collectionAdditionalData[_collectionID].collectionMintCost = _newCollectionMintCost;
         collectionAdditionalData[_collectionID].maxCollectionPurchases = _newMaxCollectionPurchases;
@@ -2684,7 +2690,7 @@ contract NextGen is ERC721Enumerable, Ownable {
     // function to initialize burn
 
     function initializeBurn(uint256 _burnCollectionID, uint256 _mintCollectionID, bool _status) public AdminRequired { 
-        require((wereDataAdded[_burnCollectionID] == true) && (wereDataAdded[_mintCollectionID]), "Collection Does not exist");
+        require((wereDataAdded[_burnCollectionID] == true) && (wereDataAdded[_mintCollectionID]), "No collection");
         burnToMintCollections[_burnCollectionID][_mintCollectionID] = _status;
     }
 
@@ -2697,6 +2703,7 @@ contract NextGen is ERC721Enumerable, Ownable {
     // function to change the token data
 
     function changeTokenData(uint256 _tokenId, string memory newData) public AdminRequired{
+        require(collectionFreeze[tokenIdsToCollectionIds[_tokenId]] == false, "Data froze");
         _requireMinted(_tokenId);
         tokenData[_tokenId] = newData;
     }
@@ -2705,6 +2712,30 @@ contract NextGen is ERC721Enumerable, Ownable {
 
     function registerCollectionAdmin(uint256 _collectionID, address _address, bool _status) public AdminRequired { 
         collectionAdmin[_address][_collectionID] = _status;
+    }
+
+    // function to update the baseuri
+
+    function updateBaseURI(uint256 _collectionID, string memory _newCollectionBaseURI) public AdminRequired{
+        require((isCollectionCreated[_collectionID] == true) && (collectionFreeze[_collectionID] == false), "Not allowed");
+        collectionInfo[_collectionID].collectionBaseURI = _newCollectionBaseURI;
+    }
+
+    // function to add a thumbnail image
+
+    function updateImages(uint256[] memory _tokenId, string[] memory _image) public AdminRequired{
+        for (uint256 x; x<_tokenId.length; x++) {
+            require(collectionFreeze[tokenIdsToCollectionIds[_tokenId[x]]] == false, "Data froze");
+            _requireMinted(_tokenId[x]);
+            tokenImage[_tokenId[x]] = _image[x];
+        }
+    }
+
+    // freeze collection
+
+    function freezeCollection(uint256 _collectionID) public AdminRequired{
+        require(isCollectionCreated[_collectionID] == true, "No Collection");
+        collectionFreeze[_collectionID] = true;
     }
 
     // Retrieve Functions
@@ -2718,7 +2749,7 @@ contract NextGen is ERC721Enumerable, Ownable {
         return bytes(baseURI).length > 0 ? string(abi.encodePacked(baseURI, tokenId.toString())) : "";
         } else {
         string memory b64 = Base64.encode(abi.encodePacked("<html><head></head><body><script src=\"",collectionInfo[tokenIdsToCollectionIds[tokenId]].collectionLibrary,"\"></script><script>",retrieveGenerativeScript(tokenId),"</script></body></html>"));
-        string memory _uri = string(abi.encodePacked("data:application/json;utf8,{\"name\":\"",collectionInfo[tokenIdsToCollectionIds[tokenId]].collectionName,"\",\"description\":\"",collectionInfo[tokenIdsToCollectionIds[tokenId]].collectionDescription,"\",\"animation_url\":\"data:text/html;base64,",b64,"\"}"));
+        string memory _uri = string(abi.encodePacked("data:application/json;utf8,{\"name\":\"",tokenId.toString(),"\",\"description\":\"",collectionInfo[tokenIdsToCollectionIds[tokenId]].collectionDescription,"\",\"image\":\"",tokenImage[tokenId],"\",\"animation_url\":\"data:text/html;base64,",b64,"\"}"));
         return _uri;
         }
     }
@@ -2770,23 +2801,10 @@ contract NextGen is ERC721Enumerable, Ownable {
         return (collectionAdditionalData[_collectionID].collectionCirculationSupply - burnAmount[_collectionID]);
     }
 
-    // function to retrieve the additional data of a token
-
-    function retrieveTokenData(uint256 tokenId) public view returns(string memory) {
-        return tokenData[tokenId];
-    }
-
     // function to retrieve the airdrop/minted tokens per address 
 
     function retrieveTokensPerAddress(uint256 _collectionID, address _address) public view returns(uint256, uint256, uint256) {
         return (tokensAirdropPerAddress[_collectionID][_address],  tokensMintedAllowlistAddress[_collectionID][_address], tokensMintedPerAddress[_collectionID][_address] );
-    }
-
-    // function to retrieve node hash
-
-    function retrieveNode(address _a, uint256 _m, string memory _tokenData) public pure returns (bytes32) {
-        bytes32 node = keccak256(abi.encodePacked(_a, _m, _tokenData));
-        return node;
     }
 
 }
