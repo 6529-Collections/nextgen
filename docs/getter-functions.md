@@ -2,13 +2,13 @@
 [How to retrieve the tokenURI?](#tokenURI)\
 [How to find the reserved tokens indices of a collection?](#tokenIndices)\
 [How to retrieve the info of a specific collection?](#collectionInfo)\
-[How to find the library and collection used in a collection?](#collectionLibraryAndScript)\
+[How to find the library and the script that are used by a collection?](#collectionLibraryAndScript)\
 [How to retrieve the Additional data that were set for a collection?](#CollectionAdditionalData)\
-[How to retrieve the collection phases times and merkle root of a collection?](#CollectionPhases)\
+[How to retrieve a collection's minting phases times and merkle root?](#CollectionPhases)\
 [How to get the generative script of a tokenId?](#GenerativeScript)\
 [How to get the total supply of a collection?](#totalSupply)\
 [How to get the token data stored on-chain for each token id?](#tokenData)\
-[How to find the amount of tokens airdropped/minted during the allowlist or public minting?](#mintedTokens)
+[How to get the amount of tokens airdropped/minted during the allowlist or public minting?](#mintedTokens)
 
 <div id='tokenURI'/>
 
@@ -18,8 +18,7 @@
 
 <b>Notes:</b> 
 * This function overrides the standard ERC721 function.
-* This function can return the tokenURI based on a specific tokenID and the collectionID.
-* This function can return the tokenURI based on on-chain data rather than returning a .json file.
+* This function can return the tokenURI based just on on-chain data rather than returning a .json URI.
 
 <!-- end of the list -->
 
@@ -31,12 +30,13 @@
     function tokenURI(
       uint256 tokenId
     ) public view returns (string memory) {
+      return (baseURI, tokenId) or
       return _uri;
     }
 
 <div id='tokenIndices'/>
 
-### How to find the reserved tokens indices of a collection?
+### How to find the reserved token indices of a collection?
 
 <b>Purpose:</b> The <i>viewTokensIndexForCollection(..)</i> function retrieves the token indices reserved for a collection.
 
@@ -47,7 +47,7 @@
 
     /**
       * @dev Retrieve the token indices of a collection.
-      * @param _collectionID Refers to the specific collection for which the reserved token indices will be returned.
+      * @param _collectionID Refers to the specific collection for which the token indices will be returned.
     */
  
     function viewTokensIndexForCollection(
@@ -68,7 +68,7 @@
 <!-- end of the list -->
 
     /**
-      * @dev Retrieve info about a collection.
+      * @dev Retrieve a collection's information.
       * @param _collectionID Refers to the specific collection for which the info will be returned.
     */
  
@@ -80,9 +80,9 @@
 
 <div id='collectionLibraryAndScript'/>
 
-### How to find the library and collection used in a collection?
+### How to find the library and the script that are used by a collection?
 
-<b>Purpose:</b> The <i>retrieveCollectionLibraryAndScript(..)</i> function retrieves the library and script used when generating a collection.
+<b>Purpose:</b> The <i>retrieveCollectionLibraryAndScript(..)</i> function retrieves the library and script that are used for generating a collection.
 
 <b>Notes:</b> 
 * The collection must exist.
@@ -90,7 +90,7 @@
 <!-- end of the list -->
 
     /**
-      * @dev Retrieve the library and collection script.
+      * @dev Retrieve a collection's library and script.
       * @param _collectionID Refers to the specific collection for which the library and script will be returned.
     */
  
@@ -113,7 +113,7 @@
 <!-- end of the list -->
 
     /**
-      * @dev Retrieve collection's additional data.
+      * @dev Retrieve a collection's additional data.
       * @param _collectionID Refers to the specific collection for which the additional data will be returned.
     */
  
@@ -125,19 +125,19 @@
 
 <div id='CollectionPhases'/>
 
-### How to retrieve the collection phases times and merkle root of a collection?
+### How to retrieve a collection's minting phases times and merkle root?
 
-<b>Purpose:</b> The <i>retrieveCollectionPhases(..)</i> function retrieves the collection phases times and merkle root.
+<b>Purpose:</b> The <i>retrieveCollectionPhases(..)</i> function retrieves a collection's minting phases times and merkle root.
 
 <b>Notes:</b> 
 * The collection must exist.
 * Additional Data must be added for a collection.
-* Collection Phases data must be added.
+* Collection Phases data must exist.
 
 <!-- end of the list -->
 
     /**
-      * @dev Retrieve the collection phases times and merkle root of a collection.
+      * @dev Retrieve the minting phases times and merkle root of a collection.
       * @param _collectionID Refers to the specific collection for which the collection phases data will be returned.
     */
  
@@ -181,7 +181,7 @@
 <!-- end of the list -->
 
     /**
-      * @dev Retrieve the total token supply of a collection.
+      * @dev Retrieve the total circulating supply of a collection.
       * @param _collectionID Refers to the specific collection for which the total supply will be returned.
     */
  
@@ -215,7 +215,7 @@
 
 <div id='mintedTokens'/>
 
-### How to find the amount of tokens airdropped/minted during the allowlist or public minting?
+### How to get the amount of tokens airdropped/minted during the allowlist or public minting?
 
 <b>Purpose:</b> The <i>retrieveTokensPerAddress(..)</i> function retrieves the tokens airdropped/minted during the allowlist or public minting.
 
