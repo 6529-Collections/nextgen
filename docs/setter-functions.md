@@ -110,6 +110,9 @@
       * @param _publicStartTime Refers to the public minting start time in UNIX epoch.
       * @param _publicEndTime Refers to the public minting end time in UNIX epoch.
       * @param _merkleRoot Refers to the Merkle Root that will be used for the allowlist minting.
+      * @rate _rate Refers to the descending/increasing rate based on which the minting cost will be updated.
+      * @param _salesOption Refers to minting sale option of a specific collection. 1 = fixed price, 2 = descending price at public sale,
+        3 = 1 mint/day auction with incremental price.
     */
  
     function setCollectionPhases(
@@ -118,7 +121,9 @@
       uint _allowlistEndTime,
       uint _publicStartTime,
       uint _publicEndTime,
-      bytes32 _merkleRoot
+      bytes32 _merkleRoot,
+      uint256 _rate,
+      uint8 salesOption
     ) public collectionOrGlobalAdmin(_collectionID);
 
 <div id='mintingStatus'/>
