@@ -2420,7 +2420,7 @@ contract NextGen is ERC721Enumerable, Ownable {
     mapping (uint256 => string) private tokenImage;
 
     // sales Option3 timestamp of last mint
-    mapping (uint256 => uint256) public lastMintDate;
+    mapping (uint256 => uint) public lastMintDate;
 
     // collectionFreeze Thumbnail
     mapping (uint256 => bool) public collectionFreeze; 
@@ -2580,14 +2580,14 @@ contract NextGen is ERC721Enumerable, Ownable {
         // control mechanism for sale option 3
         if (collectionPhases[_collectionID].salesOption == 3) {
             require(_numberOfTokens == 1, "Only 1");
-            uint256 timeOfLastMint;
+            uint timeOfLastMint;
             if (lastMintDate[_collectionID] == 0) {
                 timeOfLastMint = collectionPhases[_collectionID].publicStartTime;
             } else {
-                 timeOfLastMint = lastMintDate[_collectionID];
+                timeOfLastMint = lastMintDate[_collectionID];
             }
-            //uint256 daysDiff = (block.timestamp - dddd) / 60 / 60 / 24; // days 
-            uint256 daysDiff = (block.timestamp - timeOfLastMint) / 20;
+            //uint daysDiff = (block.timestamp - dddd) / 60 / 60 / 24; // days 
+            uint daysDiff = (block.timestamp - timeOfLastMint) / 20;
             // users are able to mint after a day passes
             require(daysDiff>=1, "1 mint/day");
             lastMintDate[_collectionID] = block.timestamp;
@@ -2820,7 +2820,7 @@ contract NextGen is ERC721Enumerable, Ownable {
     // get the minting price of collection
 
     function getPrice(uint256 _collectionId) public view returns (uint256) {
-        uint256 timeElapsed;
+        uint timeElapsed;
         uint256 rate;
         if (collectionPhases[_collectionId].salesOption == 3) {
             // fixed rate * supply, ex 0.1 increase for the first 0.2 for the second etc.
