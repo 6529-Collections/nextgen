@@ -3,8 +3,8 @@
 /**
  *
  *  @title: NextGen Contract
- *  @date: 07-July-2023 
- *  @version: 10.16.19
+ *  @date: 13-July-2023 
+ *  @version: 10.16.25
  *  @author: 6529 team
  */
 
@@ -2311,7 +2311,7 @@ interface IDelegationManagementContract {
  * @title NextGen Smart contract
  */
 
-pragma solidity ^0.8.18;
+pragma solidity ^0.8.19;
 
 contract NextGen is ERC721Enumerable, Ownable {
     using SafeMath for uint256;
@@ -2347,7 +2347,6 @@ contract NextGen is ERC721Enumerable, Ownable {
         uint256 collectionSalesPercentage;
         uint256 reservedMinTokensIndex;
         uint256 reservedMaxTokensIndex;
-        bool isCollectionActive;
     }
 
     // mapping of collectionAdditionalData struct
@@ -2357,12 +2356,13 @@ contract NextGen is ERC721Enumerable, Ownable {
     // collectionPhasesData struct declaration
 
     struct collectionPhasesDataStructure {
-        uint256 collectionID;
         uint256 allowlistStartTime;
         uint256 allowlistEndTime;
         uint256 publicStartTime;
         uint256 publicEndTime;
         bytes32 merkleRoot;
+        uint256 rate;
+        uint8 salesOption;
     }
 
     // mapping of collectionPhasesData struct
@@ -2399,7 +2399,7 @@ contract NextGen is ERC721Enumerable, Ownable {
     mapping (uint256 => mapping (uint256 => bool)) private burnToMintCollections;
 
     // current amount of burnt tokens per collection
-    mapping (uint256 => uint256) public burnAmount;
+    mapping (uint256 => uint256) private burnAmount;
 
     // total amount collected during minting from collections
     mapping (uint256 => uint256) public collectionTotalAmount;
@@ -2408,7 +2408,7 @@ contract NextGen is ERC721Enumerable, Ownable {
     mapping (uint256 => bool) public onchainMetadata; 
 
     // collection admin
-    mapping (address => mapping (uint256 => bool)) public collectionAdmin;
+    mapping (address => mapping (uint256 => bool)) private collectionAdmin;
 
     // artist signature per collection
     mapping (uint256 => string) public artistsSignatures;
@@ -2418,6 +2418,9 @@ contract NextGen is ERC721Enumerable, Ownable {
 
     // token Image
     mapping (uint256 => string) private tokenImage;
+
+    // sales Option3 timestamp of last mint
+    mapping (uint256 => uint256) public lastMintDate;
 
     // collectionFreeze Thumbnail
     mapping (uint256 => bool) public collectionFreeze; 
@@ -2480,20 +2483,21 @@ contract NextGen is ERC721Enumerable, Ownable {
 
     // function to add a collection's start/end times and merkleroot
 
-    function setCollectionPhases(uint256 _collectionID, uint256 _allowlistStartTime, uint256 _allowlistEndTime, uint256 _publicStartTime, uint256 _publicEndTime, bytes32 _merkleRoot) public collectionOrGlobalAdmin(_collectionID) {
+    function setCollectionPhases(uint256 _collectionID, uint256 _allowlistStartTime, uint256 _allowlistEndTime, uint256 _publicStartTime, uint256 _publicEndTime, bytes32 _merkleRoot, uint256 _rate, uint8 _salesOption) public collectionOrGlobalAdmin(_collectionID) {
         require(wereDataAdded[_collectionID] == true, "Add data");
         collectionPhases[_collectionID].allowlistStartTime = _allowlistStartTime;
         collectionPhases[_collectionID].allowlistEndTime = _allowlistEndTime;
         collectionPhases[_collectionID].merkleRoot = _merkleRoot;
         collectionPhases[_collectionID].publicStartTime = _publicStartTime;
         collectionPhases[_collectionID].publicEndTime = _publicEndTime;
+        collectionPhases[_collectionID].rate = _rate;
+        collectionPhases[_collectionID].salesOption = _salesOption;
     }
 
     // airdrop function
     
-    function airDropTokens(address[] memory _recipients, string[] memory _tokenData, uint256 _collectionID, uint256 _numberOfTokens) public AdminRequired {
+    function airDropTokens(address _recipient, string memory _tokenData, uint256 _varg0, uint256 _collectionID, uint256 _numberOfTokens) public AdminRequired {
         require(wereDataAdded[_collectionID] == true, "Add data");
-        for (uint256 y=0; y < _recipients.length; y++) {
         uint256 collectionTokenMintIndex;
         collectionTokenMintIndex = collectionAdditionalData[_collectionID].reservedMinTokensIndex + collectionAdditionalData[_collectionID].collectionCirculationSupply + _numberOfTokens - 1;
         require(collectionTokenMintIndex <= collectionAdditionalData[_collectionID].reservedMaxTokensIndex, "No supply");
@@ -2501,24 +2505,22 @@ contract NextGen is ERC721Enumerable, Ownable {
             uint256 mintIndex = collectionAdditionalData[_collectionID].reservedMinTokensIndex + collectionAdditionalData[_collectionID].collectionCirculationSupply;
             collectionAdditionalData[_collectionID].collectionCirculationSupply = collectionAdditionalData[_collectionID].collectionCirculationSupply + 1;
             if (collectionAdditionalData[_collectionID].collectionTotalSupply >= collectionAdditionalData[_collectionID].collectionCirculationSupply) {
-                tokenToHash[mintIndex] = keccak256(abi.encodePacked(mintIndex, blockhash(block.number - 1), _recipients[y]));
-                tokenData[mintIndex] = _tokenData[y];
+                tokenToHash[mintIndex] = calculateTokenHash(mintIndex, _recipient, _varg0);
+                tokenData[mintIndex] = _tokenData;
                 // mint token
-                _safeMint(_recipients[y], mintIndex);
+                _safeMint(_recipient, mintIndex);
                 tokenIdsToCollectionIds[mintIndex] = _collectionID;
             }
         }
-        tokensAirdropPerAddress[_collectionID][_recipients[y]] = tokensAirdropPerAddress[_collectionID][_recipients[y]] + _numberOfTokens;
-        }
+        tokensAirdropPerAddress[_collectionID][_recipient] = tokensAirdropPerAddress[_collectionID][_recipient] + _numberOfTokens;
     }
 
     // mint function
 
-    function mint(uint256 _collectionID, uint256 _numberOfTokens, uint256 _maxAllowance, string memory _tokenData, address _mintTo, bytes32[] calldata merkleProof, address _delegator) public payable
+    function mint(uint256 _collectionID, uint256 _numberOfTokens, uint256 _maxAllowance, string memory _tokenData, address _mintTo, bytes32[] calldata merkleProof, address _delegator, uint256 _varg0) public payable
     {
-        require(collectionAdditionalData[_collectionID].isCollectionActive ==true, "No minting");
-        if (block.timestamp >= collectionPhases[_collectionID].allowlistStartTime && block.timestamp<=collectionPhases[_collectionID].allowlistEndTime) {
-            require(_numberOfTokens <=_maxAllowance, "Less than maxAllowance");
+        if (block.timestamp >= collectionPhases[_collectionID].allowlistStartTime && block.timestamp <= collectionPhases[_collectionID].allowlistEndTime) {
+            require(_numberOfTokens <=_maxAllowance, "Check maxAllowance");
             bytes32 node;
             if (_delegator != 0x0000000000000000000000000000000000000000) {
                 bool isAllowedToMint;
@@ -2528,14 +2530,14 @@ contract NextGen is ERC721Enumerable, Ownable {
                 }
                 require(isAllowedToMint == true, "No delegation");
                 node = keccak256(abi.encodePacked(_delegator, _maxAllowance, _tokenData));
-                require(_maxAllowance >= tokensMintedAllowlistAddress[_collectionID][_delegator] + _numberOfTokens, "Max allowance");
+                require(_maxAllowance >= tokensMintedAllowlistAddress[_collectionID][_delegator] + _numberOfTokens, "AL reach");
             } else {
                 node = keccak256(abi.encodePacked(msg.sender, _maxAllowance, _tokenData));
-                require(_maxAllowance >= tokensMintedAllowlistAddress[_collectionID][msg.sender] + _numberOfTokens, "Max allowance");
+                require(_maxAllowance >= tokensMintedAllowlistAddress[_collectionID][msg.sender] + _numberOfTokens, "AL reach");
             }
             require(MerkleProof.verifyCalldata(merkleProof, collectionPhases[_collectionID].merkleRoot, node), 'invalid proof');
-        } else if (block.timestamp >= collectionPhases[_collectionID].publicStartTime && block.timestamp<=collectionPhases[_collectionID].publicEndTime) {
-            require(_numberOfTokens <= collectionAdditionalData[_collectionID].maxCollectionPurchases, "Purchases limit");
+        } else if (block.timestamp >= collectionPhases[_collectionID].publicStartTime && block.timestamp <= collectionPhases[_collectionID].publicEndTime) {
+            require(_numberOfTokens <= collectionAdditionalData[_collectionID].maxCollectionPurchases, "Purchase limit");
             require(tokensMintedPerAddress[_collectionID][msg.sender] + _numberOfTokens <= collectionAdditionalData[_collectionID].maxCollectionPurchases, "Max purchases");
         } else {
             revert("No minting");
@@ -2543,21 +2545,21 @@ contract NextGen is ERC721Enumerable, Ownable {
         uint256 collectionTokenMintIndex;
         collectionTokenMintIndex = collectionAdditionalData[_collectionID].reservedMinTokensIndex + collectionAdditionalData[_collectionID].collectionCirculationSupply + _numberOfTokens - 1;
         require(collectionTokenMintIndex <= collectionAdditionalData[_collectionID].reservedMaxTokensIndex, "No supply");
-        require(msg.value >= (collectionAdditionalData[_collectionID].collectionMintCost * _numberOfTokens), "Wrong ETH");
+        require(msg.value >= (getPrice(_collectionID) * _numberOfTokens), "Wrong ETH");
         for(uint256 i = 0; i < _numberOfTokens; i++) {
             uint256 mintIndex = collectionAdditionalData[_collectionID].reservedMinTokensIndex + collectionAdditionalData[_collectionID].collectionCirculationSupply;
             collectionAdditionalData[_collectionID].collectionCirculationSupply = collectionAdditionalData[_collectionID].collectionCirculationSupply + 1;
             if (collectionAdditionalData[_collectionID].collectionTotalSupply >= collectionAdditionalData[_collectionID].collectionCirculationSupply) {
                 if (block.timestamp >= collectionPhases[_collectionID].allowlistStartTime && block.timestamp<=collectionPhases[_collectionID].allowlistEndTime) {
                     if (_delegator != 0x0000000000000000000000000000000000000000) {
-                        tokenToHash[mintIndex] = keccak256(abi.encodePacked(mintIndex, blockhash(block.number - 1), _delegator));
+                        tokenToHash[mintIndex] = calculateTokenHash(mintIndex, _delegator, _varg0);
                         tokenData[mintIndex] = _tokenData;
                     } else {
-                        tokenToHash[mintIndex] = keccak256(abi.encodePacked(mintIndex, blockhash(block.number - 1), msg.sender));
+                        tokenToHash[mintIndex] =  calculateTokenHash(mintIndex, msg.sender, _varg0);
                         tokenData[mintIndex] = _tokenData;
                     }
                 } else {
-                    tokenToHash[mintIndex] = keccak256(abi.encodePacked(mintIndex, blockhash(block.number - 1), msg.sender));
+                    tokenToHash[mintIndex] =  calculateTokenHash(mintIndex, msg.sender, _varg0);
                         tokenData[mintIndex] = '"publicmint"';
                 }
                 // mint token
@@ -2566,7 +2568,7 @@ contract NextGen is ERC721Enumerable, Ownable {
             }
         }
         collectionTotalAmount[_collectionID] = collectionTotalAmount[_collectionID] + msg.value;
-        if (block.timestamp >= collectionPhases[_collectionID].allowlistStartTime && block.timestamp<=collectionPhases[_collectionID].allowlistEndTime) {
+        if (block.timestamp >= collectionPhases[_collectionID].allowlistStartTime && block.timestamp <= collectionPhases[_collectionID].allowlistEndTime) {
             if (_delegator != 0x0000000000000000000000000000000000000000) {
                 tokensMintedAllowlistAddress[_collectionID][_delegator] = tokensMintedAllowlistAddress[_collectionID][_delegator] + _numberOfTokens;
             } else {
@@ -2575,16 +2577,24 @@ contract NextGen is ERC721Enumerable, Ownable {
         } else {
             tokensMintedPerAddress[_collectionID][msg.sender] = tokensMintedPerAddress[_collectionID][msg.sender] + _numberOfTokens;
         }
+        // control mechanism for sale option 3
+        if (collectionPhases[_collectionID].salesOption == 3) {
+            require(_numberOfTokens == 1, "Only 1");
+            uint256 timeOfLastMint;
+            if (lastMintDate[_collectionID] == 0) {
+                timeOfLastMint = collectionPhases[_collectionID].publicStartTime;
+            } else {
+                 timeOfLastMint = lastMintDate[_collectionID];
+            }
+            //uint256 daysDiff = (block.timestamp - dddd) / 60 / 60 / 24; // days 
+            uint256 daysDiff = (block.timestamp - timeOfLastMint) / 20;
+            // users are able to mint after a day passes
+            require(daysDiff>=1, "1 mint/day");
+            lastMintDate[_collectionID] = block.timestamp;
+        }
     }
 
     // Additional setter functions
-
-    // function to change the status of a collection, Needs to be Active == true to mint
-
-    function changeCollectionMintStatus(uint256 _collectionID, bool _status) public AdminRequired {
-       require((wereDataAdded[_collectionID] == true), "No data");
-       collectionAdditionalData[_collectionID].isCollectionActive = _status;
-    }
 
     // function that sends the collected funds to the artist and the team
 
@@ -2631,13 +2641,6 @@ contract NextGen is ERC721Enumerable, Ownable {
         collectionAdditionalData[_collectionID].collectionSalesPercentage = _newCollectionSalesPercentage;
     }
 
-    // function to withdrawal any balance from the smart contract
-
-    function withdraw() public onlyOwner {
-        uint balance = address(this).balance;
-        payable(msg.sender).transfer(balance);
-    }
-
     // function for artist signature
 
     function artistSignature(uint256 _collectionID, string memory _signature) public {
@@ -2662,20 +2665,21 @@ contract NextGen is ERC721Enumerable, Ownable {
 
     // burn to mint function
 
-    function burnToMint(uint256 _burnCollectionID, uint256 _tokenId, uint256 _mintCollectionID) public payable{
+    function burnToMint(uint256 _burnCollectionID, uint256 _tokenId, uint256 _mintCollectionID, uint256 _varg0) public payable{
         require(burnToMintCollections[_burnCollectionID][_mintCollectionID] == true, "Initialize burn");
+        require(block.timestamp >= collectionPhases[_mintCollectionID].publicStartTime && block.timestamp<=collectionPhases[_mintCollectionID].publicEndTime,"No minting");
         require(_isApprovedOrOwner(_msgSender(), _tokenId), "ERC721: caller is not token owner or approved");
         require ((_tokenId >= collectionAdditionalData[_burnCollectionID].reservedMinTokensIndex) && (_tokenId <= collectionAdditionalData[_burnCollectionID].reservedMaxTokensIndex), "Check the tokenId / collectionId");
         // minting new token
         uint256 collectionTokenMintIndex;
         collectionTokenMintIndex = collectionAdditionalData[_mintCollectionID].reservedMinTokensIndex + collectionAdditionalData[_mintCollectionID].collectionCirculationSupply;
         require(collectionTokenMintIndex <= collectionAdditionalData[_mintCollectionID].reservedMaxTokensIndex, "No supply");
-        require(msg.value >= (collectionAdditionalData[_mintCollectionID].collectionMintCost * 1), "Wrong ETH");
+        require(msg.value >= (getPrice(_mintCollectionID) * 1), "Wrong ETH");
         uint256 mintIndex = collectionAdditionalData[_mintCollectionID].reservedMinTokensIndex + collectionAdditionalData[_mintCollectionID].collectionCirculationSupply;
         collectionAdditionalData[_mintCollectionID].collectionCirculationSupply = collectionAdditionalData[_mintCollectionID].collectionCirculationSupply + 1;
         if (collectionAdditionalData[_mintCollectionID].collectionTotalSupply >= collectionAdditionalData[_mintCollectionID].collectionCirculationSupply) {
             // generate hash
-            tokenToHash[mintIndex] = keccak256(abi.encodePacked(mintIndex, blockhash(block.number - 1), msg.sender));
+            tokenToHash[mintIndex] = calculateTokenHash(mintIndex, msg.sender, _varg0);
             tokenData[mintIndex] = string(abi.encodePacked("'burntFrom'",",",_tokenId.toString(),",",tokenData[_tokenId]));
             // mint token
             _safeMint(ownerOf(_tokenId), mintIndex);
@@ -2690,7 +2694,7 @@ contract NextGen is ERC721Enumerable, Ownable {
     // function to initialize burn
 
     function initializeBurn(uint256 _burnCollectionID, uint256 _mintCollectionID, bool _status) public AdminRequired { 
-        require((wereDataAdded[_burnCollectionID] == true) && (wereDataAdded[_mintCollectionID]), "No collection");
+        require((wereDataAdded[_burnCollectionID] == true) && (wereDataAdded[_mintCollectionID] == true), "No data");
         burnToMintCollections[_burnCollectionID][_mintCollectionID] = _status;
     }
 
@@ -2703,7 +2707,7 @@ contract NextGen is ERC721Enumerable, Ownable {
     // function to change the token data
 
     function changeTokenData(uint256 _tokenId, string memory newData) public AdminRequired{
-        require(collectionFreeze[tokenIdsToCollectionIds[_tokenId]] == false, "Data froze");
+        require(collectionFreeze[tokenIdsToCollectionIds[_tokenId]] == false, "Data frozen");
         _requireMinted(_tokenId);
         tokenData[_tokenId] = newData;
     }
@@ -2725,7 +2729,7 @@ contract NextGen is ERC721Enumerable, Ownable {
 
     function updateImages(uint256[] memory _tokenId, string[] memory _image) public AdminRequired{
         for (uint256 x; x<_tokenId.length; x++) {
-            require(collectionFreeze[tokenIdsToCollectionIds[_tokenId[x]]] == false, "Data froze");
+            require(collectionFreeze[tokenIdsToCollectionIds[_tokenId[x]]] == false, "Data frozen");
             _requireMinted(_tokenId[x]);
             tokenImage[_tokenId[x]] = _image[x];
         }
@@ -2774,14 +2778,14 @@ contract NextGen is ERC721Enumerable, Ownable {
 
     // function to retrieve the Additional data of a Collection
 
-    function retrieveCollectionAdditionalData(uint256 _collectionID) public view returns(address, uint256, uint256, uint256, uint256, uint256, bool){
-        return (collectionAdditionalData[_collectionID].collectionArtistAddress, collectionAdditionalData[_collectionID].collectionMintCost, collectionAdditionalData[_collectionID].maxCollectionPurchases, collectionAdditionalData[_collectionID].collectionCirculationSupply, collectionAdditionalData[_collectionID].collectionTotalSupply, collectionAdditionalData[_collectionID].collectionSalesPercentage, collectionAdditionalData[_collectionID].isCollectionActive);
+    function retrieveCollectionAdditionalData(uint256 _collectionID) public view returns(address, uint256, uint256, uint256, uint256, uint256){
+        return (collectionAdditionalData[_collectionID].collectionArtistAddress, collectionAdditionalData[_collectionID].collectionMintCost, collectionAdditionalData[_collectionID].maxCollectionPurchases, collectionAdditionalData[_collectionID].collectionCirculationSupply, collectionAdditionalData[_collectionID].collectionTotalSupply, collectionAdditionalData[_collectionID].collectionSalesPercentage);
     }
 
     // function to retrieve the Collection phases times and merkle root of a collection
 
-    function retrieveCollectionPhases(uint256 _collectionID) public view returns(uint256, uint256, bytes32, uint256, uint256){
-        return (collectionPhases[_collectionID].allowlistStartTime, collectionPhases[_collectionID].allowlistEndTime, collectionPhases[_collectionID].merkleRoot, collectionPhases[_collectionID].publicStartTime, collectionPhases[_collectionID].publicEndTime);
+    function retrieveCollectionPhases(uint256 _collectionID) public view returns(uint256, uint256, bytes32, uint256, uint256, uint256, uint256){
+        return (collectionPhases[_collectionID].allowlistStartTime, collectionPhases[_collectionID].allowlistEndTime, collectionPhases[_collectionID].merkleRoot, collectionPhases[_collectionID].publicStartTime, collectionPhases[_collectionID].publicEndTime, collectionPhases[_collectionID].rate, collectionPhases[_collectionID].salesOption);
     }
 
     // function to retrieve the Generative Script of a token
@@ -2805,6 +2809,40 @@ contract NextGen is ERC721Enumerable, Ownable {
 
     function retrieveTokensPerAddress(uint256 _collectionID, address _address) public view returns(uint256, uint256, uint256) {
         return (tokensAirdropPerAddress[_collectionID][_address],  tokensMintedAllowlistAddress[_collectionID][_address], tokensMintedPerAddress[_collectionID][_address] );
+    }
+
+    // function to calculate tokenhash
+
+    function calculateTokenHash(uint256 _mintIndex, address _address, uint256 _varg0) private view returns(bytes32) {
+        return keccak256(abi.encodePacked(_mintIndex, blockhash(block.number - 1), _address, _varg0));
+    }
+
+    // get the minting price of collection
+
+    function getPrice(uint256 _collectionId) public view returns (uint256) {
+        uint256 timeElapsed;
+        uint256 rate;
+        if (collectionPhases[_collectionId].salesOption == 3) {
+            // fixed rate * supply, ex 0.1 increase for the first 0.2 for the second etc.
+            rate = collectionPhases[_collectionId].rate * 86400 * (collectionAdditionalData[_collectionId].collectionCirculationSupply + 1);
+            return collectionAdditionalData[_collectionId].collectionMintCost + rate;
+        } else if (collectionPhases[_collectionId].salesOption == 2){
+            if ((collectionPhases[_collectionId].publicStartTime > collectionPhases[_collectionId].allowlistEndTime) && (block.timestamp >= collectionPhases[_collectionId].publicStartTime)) {
+                // decrease minting price per second
+                timeElapsed = block.timestamp - collectionPhases[_collectionId].publicStartTime;
+                rate = collectionPhases[_collectionId].rate * timeElapsed;
+                if (rate > collectionAdditionalData[_collectionId].collectionMintCost) {
+                    return collectionAdditionalData[_collectionId].collectionMintCost;
+                } else {
+                    return collectionAdditionalData[_collectionId].collectionMintCost - rate;
+                }
+            } else {
+                return collectionAdditionalData[_collectionId].collectionMintCost;
+            }
+        } else {
+            // fixed price
+            return collectionAdditionalData[_collectionId].collectionMintCost;
+        }
     }
 
 }
