@@ -2,7 +2,6 @@
 [How to create a Collection?](#createCollection)\
 [How to add data on a Collection?](#addCollectionData)\
 [How to set various collection minting phases?](#setCollectionPhases)\
-[How to modify the minting status of a collection?](#mintingStatus)\
 [How to airdrop tokens?](#airdrop)\
 [How to mint tokens?](#minting)\
 [How to send the collected funds to the Artist?](#payArist)\
@@ -99,6 +98,7 @@
 <b>Notes:</b> 
 * This function can be called by the contract deployer or a contract administrator or a collection administrator.
 * This is the final step for setting up a collection.
+* Minting is active once the collection phases start.
 
 <!-- end of the list -->
 
@@ -123,27 +123,6 @@
 
 <div id='mintingStatus'/>
 
-### How to modify the minting status of a collection?
-
-<b>Purpose:</b> The <i>changeCollectionMintStatus(..)</i> function allows an admin to enable/disable the minting process of a collection.
-
-<b>Notes:</b> 
-* This function can be called by the contract deployer or a contract administrator.
-* Minting is active once the collection phases are set.
-
-<!-- end of the list -->
-
-    /**
-      * @dev Set the minting status of a collection.
-      * @param _collectionID Refers to the collection id for which the minting status will be altered.
-      * @param _status Refers to minting status, if true == minting is active, otherwise minting is not enabled.
-    */
- 
-    function changeCollectionMintStatus(
-      uint256 _collectionID,
-      bool _status,
-    ) public AdminRequired;
-
 <div id='airdrop'/>
 
 ### How to airdrop tokens?
@@ -159,15 +138,17 @@
 
     /**
       * @dev Aidrop tokens of a specific collection to a list of recipients.
-      * @param _recipients Refers to the list of recipients who will receive the airdrop.
-      * @param _tokenData Refers to a list that contains the additional token data that we store on-chain for each airdropped token.
+      * @param _recipient Refers to the recipient who will receive the airdrop.
+      * @param _tokenData Refers to the additional token data that are stored on-chain for each airdropped token.
+      * @param _varg0 Refers to the arbitrary value that will be used for generating the tokenHash.
       * @param _collectionID Refers to the collection for which the admin initiates the airdrop.
       * @param _numberOfTokens Refers to the number of tokens that will be airdroped.    
     */
  
     function airDropTokens(
-      address[] memory _recipients,
-      string[] memory _tokenData,
+      address _recipient,
+      string memory _tokenData,
+      uint256 _varg0,
       uint256 _collectionID,
       uint256 _numberOfTokens
     ) public AdminRequired;
@@ -197,6 +178,7 @@
       * @param merkleProof Refers to the set of hashes that can be used to prove a given leaf's membership in the merkle tree.
       * @param _delegator Refers to the delegator address during allowlist minting. If the minter will mint on his behalf the _delegator value
         is set to 0x0000000000000000000000000000000000000000, otherwise the delegator's address needs to be provided.
+      * @param _varg0 Refers to the arbitrary value that will be used for generating the tokenHash.
     */
  
     function mint(
@@ -205,7 +187,9 @@
       uint256 _maxAllowance,
       string _tokenData,
       address _mintTo,
-      bytes32[] calldata merkleProof
+      bytes32[] calldata merkleProof,
+      address _delegator,
+      uint256 _varg0
     ) public payable;
 
 <div id='payArist'/>
@@ -433,12 +417,14 @@
       * @param _burnCollectionID Refers to the collection for which a token will be burnt.
       * @param _tokenId Refers to the token id that will be burnt.
       * @param _mintCollectionID Refers to the collection for which a new token will be minted.
+      * @param _varg0 Refers to the arbitrary value that will be used for generating the tokenHash.
     */
  
     function burnToMint(
       uint256 _burnCollectionID,
       uint256 _tokenId,
-      uint256 _mintCollectionID
+      uint256 _mintCollectionID,
+      uint256 _varg0
     ) public payable;
 
 <div id='updateCollectionInfo'/>
