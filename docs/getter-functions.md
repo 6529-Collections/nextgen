@@ -9,7 +9,7 @@
 [How to get the total supply of a collection?](#totalSupply)\
 [How to get the token data stored on-chain for each token id?](#tokenData)\
 [How to get the amount of tokens airdropped/minted during the allowlist or public minting?](#mintedTokens)\
-[How to get the current price of a live collection sale?](#getPrice)
+[How to get the current minting cost of a live collection sale?](#getPrice)
 
 <div id='tokenURI'/>
 
@@ -240,7 +240,7 @@
 
 <div id='getPrice'/>
 
-### How to get the current price of a live collection sale?
+### How to get the current minting cost of a live collection sale?
 
 <b>Purpose:</b> The <i>getPrice(..)</i> function retrieves current minting price of a live collection.
 
