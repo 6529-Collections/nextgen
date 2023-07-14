@@ -114,10 +114,10 @@
  
     function setCollectionPhases(
       uint256 _collectionID,
-      uint256 _allowlistStartTime,
-      uint256 _allowlistEndTime,
-      uint256 _publicStartTime,
-      uint256 _publicEndTime,
+      uint _allowlistStartTime,
+      uint _allowlistEndTime,
+      uint _publicStartTime,
+      uint _publicEndTime,
       bytes32 _merkleRoot
     ) public collectionOrGlobalAdmin(_collectionID);
 
