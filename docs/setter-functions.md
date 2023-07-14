@@ -16,8 +16,8 @@
 [How to burn an existing token and mint a new one?](#burnToMint)\
 [How to update the info of a Collection?](#updateCollectionInfo)\
 [How to update the script of a Collection using an index?](#updateCollectionScriptByIndex)\
-[How to update the additional data already set for a collection?](#updateCollectionAdditionalData)
-[How to update a collection's baseURI](#updateBaseURI)
+[How to update the additional data already set for a collection?](#updateCollectionAdditionalData)\
+[How to update a collection's baseURI](#updateBaseURI)\
 [How to update the imageURI of a specific token for on-chain purposes?](#updateImages)
 
 <div id='createCollection'/>
