@@ -3,8 +3,8 @@
 /**
  *
  *  @title: NextGen Contract
- *  @date: 13-July-2023 
- *  @version: 10.16.25
+ *  @date: 14-July-2023 
+ *  @version: 10.16.26
  *  @author: 6529 team
  */
 
@@ -2356,10 +2356,10 @@ contract NextGen is ERC721Enumerable, Ownable {
     // collectionPhasesData struct declaration
 
     struct collectionPhasesDataStructure {
-        uint256 allowlistStartTime;
-        uint256 allowlistEndTime;
-        uint256 publicStartTime;
-        uint256 publicEndTime;
+        uint allowlistStartTime;
+        uint allowlistEndTime;
+        uint publicStartTime;
+        uint publicEndTime;
         bytes32 merkleRoot;
         uint256 rate;
         uint8 salesOption;
@@ -2483,7 +2483,7 @@ contract NextGen is ERC721Enumerable, Ownable {
 
     // function to add a collection's start/end times and merkleroot
 
-    function setCollectionPhases(uint256 _collectionID, uint256 _allowlistStartTime, uint256 _allowlistEndTime, uint256 _publicStartTime, uint256 _publicEndTime, bytes32 _merkleRoot, uint256 _rate, uint8 _salesOption) public collectionOrGlobalAdmin(_collectionID) {
+    function setCollectionPhases(uint256 _collectionID, uint _allowlistStartTime, uint _allowlistEndTime, uint _publicStartTime, uint _publicEndTime, bytes32 _merkleRoot, uint256 _rate, uint8 _salesOption) public collectionOrGlobalAdmin(_collectionID) {
         require(wereDataAdded[_collectionID] == true, "Add data");
         collectionPhases[_collectionID].allowlistStartTime = _allowlistStartTime;
         collectionPhases[_collectionID].allowlistEndTime = _allowlistEndTime;
@@ -2784,7 +2784,7 @@ contract NextGen is ERC721Enumerable, Ownable {
 
     // function to retrieve the Collection phases times and merkle root of a collection
 
-    function retrieveCollectionPhases(uint256 _collectionID) public view returns(uint256, uint256, bytes32, uint256, uint256, uint256, uint256){
+    function retrieveCollectionPhases(uint256 _collectionID) public view returns(uint, uint, bytes32, uint, uint, uint256, uint256){
         return (collectionPhases[_collectionID].allowlistStartTime, collectionPhases[_collectionID].allowlistEndTime, collectionPhases[_collectionID].merkleRoot, collectionPhases[_collectionID].publicStartTime, collectionPhases[_collectionID].publicEndTime, collectionPhases[_collectionID].rate, collectionPhases[_collectionID].salesOption);
     }
 
