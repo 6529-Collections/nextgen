@@ -144,7 +144,7 @@
  
     function retrieveCollectionPhases(
       uint256 _collectionID
-    ) public view returns (uint, uint, bytes32, uint, uint, uint256, uint256 ) {
+    ) public view returns (uint, uint, bytes32, uint, uint, uint256, uint8) {
       return (allowlistStartTime, allowlistEndTime, merkleRoot, publicStartTime, publicEndTime, rate, salesOption);
     }
 
