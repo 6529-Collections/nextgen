@@ -2784,7 +2784,7 @@ contract NextGen is ERC721Enumerable, Ownable {
 
     // function to retrieve the Collection phases times and merkle root of a collection
 
-    function retrieveCollectionPhases(uint256 _collectionID) public view returns(uint, uint, bytes32, uint, uint, uint256, uint256){
+    function retrieveCollectionPhases(uint256 _collectionID) public view returns(uint, uint, bytes32, uint, uint, uint256, uint8){
         return (collectionPhases[_collectionID].allowlistStartTime, collectionPhases[_collectionID].allowlistEndTime, collectionPhases[_collectionID].merkleRoot, collectionPhases[_collectionID].publicStartTime, collectionPhases[_collectionID].publicEndTime, collectionPhases[_collectionID].rate, collectionPhases[_collectionID].salesOption);
     }
 
