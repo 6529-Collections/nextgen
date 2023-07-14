@@ -9,6 +9,7 @@
 [How to get the total supply of a collection?](#totalSupply)\
 [How to get the token data stored on-chain for each token id?](#tokenData)\
 [How to get the amount of tokens airdropped/minted during the allowlist or public minting?](#mintedTokens)
+[How to get the current price of a live collection sale?](#getPrice)
 
 <div id='tokenURI'/>
 
@@ -119,8 +120,8 @@
  
     function retrieveCollectionAdditionalData(
       uint256 _collectionID
-    ) public view returns (address, uint256, uint256, uint256, uint256, uint256, bool) {
-      return (collectionArtistAddress, collectionMintCost, maxCollectionPurchases, collectionCirculationSupply, collectionTotalSupply, collectionSalesPercentage, isCollectionActive);
+    ) public view returns (address, uint256, uint256, uint256, uint256, uint256) {
+      return (collectionArtistAddress, collectionMintCost, maxCollectionPurchases, collectionCirculationSupply, collectionTotalSupply, collectionSalesPercentage);
     }
 
 <div id='CollectionPhases'/>
@@ -143,8 +144,8 @@
  
     function retrieveCollectionPhases(
       uint256 _collectionID
-    ) public view returns (uint256, uint256, bytes32, uint256, uint256) {
-      return (allowlistStartTime, allowlistEndTime, merkleRoot, publicStartTime, publicEndTime);
+    ) public view returns (uint, uint, bytes32, uint, uint, uint256, uint256 ) {
+      return (allowlistStartTime, allowlistEndTime, merkleRoot, publicStartTime, publicEndTime, rate, salesOption);
     }
 
 <div id='GenerativeScript'/>
@@ -235,4 +236,28 @@
       address _address
     ) public view returns (uint256, uint256, uint256) {
       return (Airdrop, Allowlist, Public);
+    }
+
+<div id='getPrice'/>
+
+### How to get the current price of a live collection sale?
+
+<b>Purpose:</b> The <i>getPrice(..)</i> function retrieves current minting price of a live collection.
+
+<b>Notes:</b> 
+* The collection must exist.
+* Additional Data must be added for a collection.
+* Minting phases must be setup.
+
+<!-- end of the list -->
+
+    /**
+      * @dev Retrieve the current minting price of a live collection
+      * @param _collectionID Refers to the specific collection for which the the current price will be returned.
+    */
+ 
+    function getPrice(
+      uint256 _collectionID
+    ) public view returns (uint256) {
+      return (MintingCost);
     }
