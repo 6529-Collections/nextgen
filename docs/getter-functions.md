@@ -103,7 +103,7 @@
 
 <div id='CollectionAdditionalData'/>
 
-### How to retrieve the Additional data that were set for a collection?
+### How to retrieve the additional data that were set for a collection?
 
 <b>Purpose:</b> The <i>retrieveCollectionAdditionalData(..)</i> function retrieves the additional data set when creating a collection.
 
