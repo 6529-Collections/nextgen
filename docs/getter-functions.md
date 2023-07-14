@@ -3,7 +3,7 @@
 [How to find the reserved tokens indices of a collection?](#tokenIndices)\
 [How to retrieve the info of a specific collection?](#collectionInfo)\
 [How to find the library and the script that are used by a collection?](#collectionLibraryAndScript)\
-[How to retrieve the Additional data that were set for a collection?](#CollectionAdditionalData)\
+[How to retrieve the additional data that were set for a collection?](#CollectionAdditionalData)\
 [How to retrieve a collection's minting phases times and merkle root?](#CollectionPhases)\
 [How to get the generative script of a tokenId?](#GenerativeScript)\
 [How to get the total supply of a collection?](#totalSupply)\
