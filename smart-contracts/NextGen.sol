@@ -3,8 +3,8 @@
 /**
  *
  *  @title: NextGen Contract
- *  @date: 14-July-2023 
- *  @version: 10.16.26
+ *  @date: 21-July-2023 
+ *  @version: 10.16.27.11
  *  @author: 6529 team
  */
 
@@ -2340,7 +2340,6 @@ contract NextGen is ERC721Enumerable, Ownable {
 
     struct collectionAdditonalDataStructure {
         address collectionArtistAddress;
-        uint256 collectionMintCost;
         uint256 maxCollectionPurchases;
         uint256 collectionCirculationSupply;
         uint256 collectionTotalSupply;
@@ -2361,6 +2360,9 @@ contract NextGen is ERC721Enumerable, Ownable {
         uint publicStartTime;
         uint publicEndTime;
         bytes32 merkleRoot;
+        uint256 collectionMintCost;
+        uint256 collectionEndMintCost;
+        uint256 timePeriod;
         uint256 rate;
         uint8 salesOption;
     }
@@ -2396,7 +2398,7 @@ contract NextGen is ERC721Enumerable, Ownable {
     mapping (uint256 => mapping (address => uint256)) private tokensAirdropPerAddress;
 
     // mint tokens on a specific collection after burning on other collection
-    mapping (uint256 => mapping (uint256 => bool)) private burnToMintCollections;
+    mapping (uint256 => mapping (uint256 => bool)) public burnToMintCollections;
 
     // current amount of burnt tokens per collection
     mapping (uint256 => uint256) private burnAmount;
@@ -2416,8 +2418,8 @@ contract NextGen is ERC721Enumerable, Ownable {
     // tokens additional metadata
     mapping (uint256 => string) public tokenData;
 
-    // token Image
-    mapping (uint256 => string) private tokenImage;
+    // on-chain token Image URI
+    mapping (uint256 => string) public tokenImage;
 
     // sales Option3 timestamp of last mint
     mapping (uint256 => uint) public lastMintDate;
@@ -2464,33 +2466,41 @@ contract NextGen is ERC721Enumerable, Ownable {
         newCollectionIndex = newCollectionIndex + 1;
     }
 
-    // function to add the additional data of a collection
+    // function to add/modify the additional data of a collection
+    // once a collection is created and total supply is set it cannot be changed
+    // only _collectionArtistAddress , _maxCollectionPurchases and _collectionSalesPercentage can change after total supply is set
 
-    function addCollectionData(uint256 _collectionID, address _collectionArtistAddress, uint256 _collectionMintCost, uint256 _maxCollectionPurchases, uint256 _collectionTotalSupply, uint256 _collectionSalesPercentage) public AdminRequired {
-        require((isCollectionCreated[_collectionID] == true) && (wereDataAdded[_collectionID] == false), "No collection/data");
-        require(_collectionTotalSupply <= 10000000000, "Modify supply");
-        require(_collectionSalesPercentage <= 100, "Wrong %");
-        collectionAdditionalData[_collectionID].collectionArtistAddress = _collectionArtistAddress;
-        collectionAdditionalData[_collectionID].collectionMintCost = _collectionMintCost;
-        collectionAdditionalData[_collectionID].maxCollectionPurchases = _maxCollectionPurchases;
-        collectionAdditionalData[_collectionID].collectionCirculationSupply = 0;
-        collectionAdditionalData[_collectionID].collectionTotalSupply = _collectionTotalSupply;
-        collectionAdditionalData[_collectionID].collectionSalesPercentage = _collectionSalesPercentage;
-        collectionAdditionalData[_collectionID].reservedMinTokensIndex = (_collectionID * 10000000000);
-        collectionAdditionalData[_collectionID].reservedMaxTokensIndex = (_collectionID * 10000000000) + _collectionTotalSupply - 1;
-        wereDataAdded[_collectionID] = true;
+    function setCollectionData(uint256 _collectionID, address _collectionArtistAddress, uint256 _maxCollectionPurchases, uint256 _collectionTotalSupply, uint256 _collectionSalesPercentage) public AdminRequired {
+        require((isCollectionCreated[_collectionID] == true) && (collectionFreeze[_collectionID] == false) && (_collectionTotalSupply <= 10000000000) && (_collectionSalesPercentage <= 100), "wrong/freezed");
+        if (collectionAdditionalData[_collectionID].collectionTotalSupply == 0) {
+            collectionAdditionalData[_collectionID].collectionArtistAddress = _collectionArtistAddress;
+            collectionAdditionalData[_collectionID].maxCollectionPurchases = _maxCollectionPurchases;
+            collectionAdditionalData[_collectionID].collectionCirculationSupply = 0;
+            collectionAdditionalData[_collectionID].collectionTotalSupply = _collectionTotalSupply;
+            collectionAdditionalData[_collectionID].collectionSalesPercentage = _collectionSalesPercentage;
+            collectionAdditionalData[_collectionID].reservedMinTokensIndex = (_collectionID * 10000000000);
+            collectionAdditionalData[_collectionID].reservedMaxTokensIndex = (_collectionID * 10000000000) + _collectionTotalSupply - 1;
+            wereDataAdded[_collectionID] = true;
+        } else {
+            collectionAdditionalData[_collectionID].collectionArtistAddress = _collectionArtistAddress;
+            collectionAdditionalData[_collectionID].maxCollectionPurchases = _maxCollectionPurchases;
+            collectionAdditionalData[_collectionID].collectionSalesPercentage = _collectionSalesPercentage;
+        }
     }
 
     // function to add a collection's start/end times and merkleroot
 
-    function setCollectionPhases(uint256 _collectionID, uint _allowlistStartTime, uint _allowlistEndTime, uint _publicStartTime, uint _publicEndTime, bytes32 _merkleRoot, uint256 _rate, uint8 _salesOption) public collectionOrGlobalAdmin(_collectionID) {
-        require(wereDataAdded[_collectionID] == true, "Add data");
+    function setCollectionPhases(uint256 _collectionID, uint _allowlistStartTime, uint _allowlistEndTime, uint _publicStartTime, uint _publicEndTime, bytes32 _merkleRoot, uint256 _collectionMintCost, uint256 _collectionEndMintCost, uint256 _rate, uint256 _timePeriod, uint8 _salesOption) public collectionOrGlobalAdmin(_collectionID) {
+        require(wereDataAdded[_collectionID] == true && collectionFreeze[_collectionID] == false, "nodata/freezed");
         collectionPhases[_collectionID].allowlistStartTime = _allowlistStartTime;
         collectionPhases[_collectionID].allowlistEndTime = _allowlistEndTime;
         collectionPhases[_collectionID].merkleRoot = _merkleRoot;
         collectionPhases[_collectionID].publicStartTime = _publicStartTime;
         collectionPhases[_collectionID].publicEndTime = _publicEndTime;
+        collectionPhases[_collectionID].collectionMintCost = _collectionMintCost;
+        collectionPhases[_collectionID].collectionEndMintCost = _collectionEndMintCost;
         collectionPhases[_collectionID].rate = _rate;
+        collectionPhases[_collectionID].timePeriod = _timePeriod;
         collectionPhases[_collectionID].salesOption = _salesOption;
     }
 
@@ -2520,7 +2530,7 @@ contract NextGen is ERC721Enumerable, Ownable {
     function mint(uint256 _collectionID, uint256 _numberOfTokens, uint256 _maxAllowance, string memory _tokenData, address _mintTo, bytes32[] calldata merkleProof, address _delegator, uint256 _varg0) public payable
     {
         if (block.timestamp >= collectionPhases[_collectionID].allowlistStartTime && block.timestamp <= collectionPhases[_collectionID].allowlistEndTime) {
-            require(_numberOfTokens <=_maxAllowance, "Check maxAllowance");
+            //require(_numberOfTokens <=_maxAllowance, "Check maxAllowance");
             bytes32 node;
             if (_delegator != 0x0000000000000000000000000000000000000000) {
                 bool isAllowedToMint;
@@ -2530,15 +2540,15 @@ contract NextGen is ERC721Enumerable, Ownable {
                 }
                 require(isAllowedToMint == true, "No delegation");
                 node = keccak256(abi.encodePacked(_delegator, _maxAllowance, _tokenData));
-                require(_maxAllowance >= tokensMintedAllowlistAddress[_collectionID][_delegator] + _numberOfTokens, "AL reach");
+                require(_maxAllowance >= tokensMintedAllowlistAddress[_collectionID][_delegator] + _numberOfTokens, "AL limit");
             } else {
                 node = keccak256(abi.encodePacked(msg.sender, _maxAllowance, _tokenData));
-                require(_maxAllowance >= tokensMintedAllowlistAddress[_collectionID][msg.sender] + _numberOfTokens, "AL reach");
+                require(_maxAllowance >= tokensMintedAllowlistAddress[_collectionID][msg.sender] + _numberOfTokens, "AL limit");
             }
             require(MerkleProof.verifyCalldata(merkleProof, collectionPhases[_collectionID].merkleRoot, node), 'invalid proof');
         } else if (block.timestamp >= collectionPhases[_collectionID].publicStartTime && block.timestamp <= collectionPhases[_collectionID].publicEndTime) {
-            require(_numberOfTokens <= collectionAdditionalData[_collectionID].maxCollectionPurchases, "Purchase limit");
-            require(tokensMintedPerAddress[_collectionID][msg.sender] + _numberOfTokens <= collectionAdditionalData[_collectionID].maxCollectionPurchases, "Max purchases");
+            require(_numberOfTokens <= collectionAdditionalData[_collectionID].maxCollectionPurchases, "Limit");
+            require(tokensMintedPerAddress[_collectionID][msg.sender] + _numberOfTokens <= collectionAdditionalData[_collectionID].maxCollectionPurchases, "Max");
         } else {
             revert("No minting");
         }
@@ -2560,7 +2570,7 @@ contract NextGen is ERC721Enumerable, Ownable {
                     }
                 } else {
                     tokenToHash[mintIndex] =  calculateTokenHash(mintIndex, msg.sender, _varg0);
-                        tokenData[mintIndex] = '"publicmint"';
+                        tokenData[mintIndex] = '"public"';
                 }
                 // mint token
                 _safeMint(_mintTo, mintIndex);
@@ -2579,17 +2589,17 @@ contract NextGen is ERC721Enumerable, Ownable {
         }
         // control mechanism for sale option 3
         if (collectionPhases[_collectionID].salesOption == 3) {
-            require(_numberOfTokens == 1, "Only 1");
             uint timeOfLastMint;
             if (lastMintDate[_collectionID] == 0) {
-                timeOfLastMint = collectionPhases[_collectionID].publicStartTime;
+                // for public sale set the allowlist the same time as publicsale
+                timeOfLastMint = collectionPhases[_collectionID].allowlistStartTime - collectionPhases[_collectionID].timePeriod;
             } else {
                 timeOfLastMint = lastMintDate[_collectionID];
             }
-            //uint daysDiff = (block.timestamp - dddd) / 60 / 60 / 24; // days 
-            uint daysDiff = (block.timestamp - timeOfLastMint) / 20;
+            //uint calculates if period has passed in order to allow minting
+            uint tDiff = (block.timestamp - timeOfLastMint) / collectionPhases[_collectionID].timePeriod;
             // users are able to mint after a day passes
-            require(daysDiff>=1, "1 mint/day");
+            require(tDiff>=1 && _numberOfTokens == 1, "1 mint/period");
             lastMintDate[_collectionID] = block.timestamp;
         }
     }
@@ -2598,7 +2608,7 @@ contract NextGen is ERC721Enumerable, Ownable {
 
     // function that sends the collected funds to the artist and the team
 
-    function payArtist(uint256 _collectionID) public AdminRequired {
+    function payArtist(uint256 _collectionID, address _team) public AdminRequired {
         uint256 royalties;
         uint256 artistRoyalties;
         uint256 teamRoyalites;
@@ -2606,7 +2616,7 @@ contract NextGen is ERC721Enumerable, Ownable {
         artistRoyalties = royalties * collectionAdditionalData[_collectionID].collectionSalesPercentage / 100;
         teamRoyalites = royalties * (100 - collectionAdditionalData[_collectionID].collectionSalesPercentage) / 100;
         payable(collectionAdditionalData[_collectionID].collectionArtistAddress).transfer(artistRoyalties);
-        payable(owner()).transfer(teamRoyalites);
+        payable(_team).transfer(teamRoyalites);
         collectionTotalAmount[_collectionID] = 0;
     }
 
@@ -2630,17 +2640,6 @@ contract NextGen is ERC721Enumerable, Ownable {
         collectionInfo[_collectionID].collectionScript[_index] = _newCollectionIndexScript;
     }
 
-    // function to update collection additional data
-
-    function updateCollectionAdditionalData(uint256 _collectionID, address _newCollectionArtistAddress, uint256 _newCollectionMintCost, uint256 _newMaxCollectionPurchases, uint256 _newCollectionSalesPercentage) public AdminRequired {
-        require(wereDataAdded[_collectionID] == true && (collectionFreeze[_collectionID] == false), "Not allowed");
-        require(_newCollectionSalesPercentage <= 100, "Wrong %");
-        collectionAdditionalData[_collectionID].collectionArtistAddress = _newCollectionArtistAddress;
-        collectionAdditionalData[_collectionID].collectionMintCost = _newCollectionMintCost;
-        collectionAdditionalData[_collectionID].maxCollectionPurchases = _newMaxCollectionPurchases;
-        collectionAdditionalData[_collectionID].collectionSalesPercentage = _newCollectionSalesPercentage;
-    }
-
     // function for artist signature
 
     function artistSignature(uint256 _collectionID, string memory _signature) public {
@@ -2658,7 +2657,7 @@ contract NextGen is ERC721Enumerable, Ownable {
 
     function burn(uint256 _collectionID, uint256 _tokenId) public {
         require(_isApprovedOrOwner(_msgSender(), _tokenId), "ERC721: caller is not token owner or approved");
-        require ((_tokenId >= collectionAdditionalData[_collectionID].reservedMinTokensIndex) && (_tokenId <= collectionAdditionalData[_collectionID].reservedMaxTokensIndex), "Check the tokenId / collectionId");
+        require ((_tokenId >= collectionAdditionalData[_collectionID].reservedMinTokensIndex) && (_tokenId <= collectionAdditionalData[_collectionID].reservedMaxTokensIndex), "id err");
         _burn(_tokenId);
         burnAmount[_collectionID] = burnAmount[_collectionID] + 1;
     }
@@ -2669,12 +2668,12 @@ contract NextGen is ERC721Enumerable, Ownable {
         require(burnToMintCollections[_burnCollectionID][_mintCollectionID] == true, "Initialize burn");
         require(block.timestamp >= collectionPhases[_mintCollectionID].publicStartTime && block.timestamp<=collectionPhases[_mintCollectionID].publicEndTime,"No minting");
         require(_isApprovedOrOwner(_msgSender(), _tokenId), "ERC721: caller is not token owner or approved");
-        require ((_tokenId >= collectionAdditionalData[_burnCollectionID].reservedMinTokensIndex) && (_tokenId <= collectionAdditionalData[_burnCollectionID].reservedMaxTokensIndex), "Check the tokenId / collectionId");
+        require ((_tokenId >= collectionAdditionalData[_burnCollectionID].reservedMinTokensIndex) && (_tokenId <= collectionAdditionalData[_burnCollectionID].reservedMaxTokensIndex), "id err");
         // minting new token
         uint256 collectionTokenMintIndex;
         collectionTokenMintIndex = collectionAdditionalData[_mintCollectionID].reservedMinTokensIndex + collectionAdditionalData[_mintCollectionID].collectionCirculationSupply;
         require(collectionTokenMintIndex <= collectionAdditionalData[_mintCollectionID].reservedMaxTokensIndex, "No supply");
-        require(msg.value >= (getPrice(_mintCollectionID) * 1), "Wrong ETH");
+        require(msg.value >= getPrice(_mintCollectionID), "Wrong ETH");
         uint256 mintIndex = collectionAdditionalData[_mintCollectionID].reservedMinTokensIndex + collectionAdditionalData[_mintCollectionID].collectionCirculationSupply;
         collectionAdditionalData[_mintCollectionID].collectionCirculationSupply = collectionAdditionalData[_mintCollectionID].collectionCirculationSupply + 1;
         if (collectionAdditionalData[_mintCollectionID].collectionTotalSupply >= collectionAdditionalData[_mintCollectionID].collectionCirculationSupply) {
@@ -2738,7 +2737,7 @@ contract NextGen is ERC721Enumerable, Ownable {
     // freeze collection
 
     function freezeCollection(uint256 _collectionID) public AdminRequired{
-        require(isCollectionCreated[_collectionID] == true, "No Collection");
+        require(isCollectionCreated[_collectionID] == true, "No Col");
         collectionFreeze[_collectionID] = true;
     }
 
@@ -2778,14 +2777,20 @@ contract NextGen is ERC721Enumerable, Ownable {
 
     // function to retrieve the Additional data of a Collection
 
-    function retrieveCollectionAdditionalData(uint256 _collectionID) public view returns(address, uint256, uint256, uint256, uint256, uint256){
-        return (collectionAdditionalData[_collectionID].collectionArtistAddress, collectionAdditionalData[_collectionID].collectionMintCost, collectionAdditionalData[_collectionID].maxCollectionPurchases, collectionAdditionalData[_collectionID].collectionCirculationSupply, collectionAdditionalData[_collectionID].collectionTotalSupply, collectionAdditionalData[_collectionID].collectionSalesPercentage);
+    function retrieveCollectionAdditionalData(uint256 _collectionID) public view returns(address, uint256, uint256, uint256, uint256){
+        return (collectionAdditionalData[_collectionID].collectionArtistAddress, collectionAdditionalData[_collectionID].maxCollectionPurchases, collectionAdditionalData[_collectionID].collectionCirculationSupply, collectionAdditionalData[_collectionID].collectionTotalSupply, collectionAdditionalData[_collectionID].collectionSalesPercentage);
     }
 
     // function to retrieve the Collection phases times and merkle root of a collection
 
-    function retrieveCollectionPhases(uint256 _collectionID) public view returns(uint, uint, bytes32, uint, uint, uint256, uint8){
-        return (collectionPhases[_collectionID].allowlistStartTime, collectionPhases[_collectionID].allowlistEndTime, collectionPhases[_collectionID].merkleRoot, collectionPhases[_collectionID].publicStartTime, collectionPhases[_collectionID].publicEndTime, collectionPhases[_collectionID].rate, collectionPhases[_collectionID].salesOption);
+    function retrieveCollectionPhases(uint256 _collectionID) public view returns(uint, uint, bytes32, uint, uint){
+        return (collectionPhases[_collectionID].allowlistStartTime, collectionPhases[_collectionID].allowlistEndTime, collectionPhases[_collectionID].merkleRoot, collectionPhases[_collectionID].publicStartTime, collectionPhases[_collectionID].publicEndTime);
+    }
+
+    // function to retrieve the Collection phases times and merkle root of a collection
+
+    function retrieveCollectionMintingDetails(uint256 _collectionID) public view returns(uint256, uint256, uint256, uint256, uint8){
+        return (collectionPhases[_collectionID].collectionMintCost, collectionPhases[_collectionID].collectionEndMintCost, collectionPhases[_collectionID].rate, collectionPhases[_collectionID].timePeriod, collectionPhases[_collectionID].salesOption);
     }
 
     // function to retrieve the Generative Script of a token
@@ -2820,28 +2825,42 @@ contract NextGen is ERC721Enumerable, Ownable {
     // get the minting price of collection
 
     function getPrice(uint256 _collectionId) public view returns (uint256) {
-        uint timeElapsed;
-        uint256 rate;
+        uint tDiff;
         if (collectionPhases[_collectionId].salesOption == 3) {
-            // fixed rate * supply, ex 0.1 increase for the first 0.2 for the second etc.
-            rate = collectionPhases[_collectionId].rate * 86400 * (collectionAdditionalData[_collectionId].collectionCirculationSupply + 1);
-            return collectionAdditionalData[_collectionId].collectionMintCost + rate;
-        } else if (collectionPhases[_collectionId].salesOption == 2){
-            if ((collectionPhases[_collectionId].publicStartTime > collectionPhases[_collectionId].allowlistEndTime) && (block.timestamp >= collectionPhases[_collectionId].publicStartTime)) {
-                // decrease minting price per second
-                timeElapsed = block.timestamp - collectionPhases[_collectionId].publicStartTime;
-                rate = collectionPhases[_collectionId].rate * timeElapsed;
-                if (rate > collectionAdditionalData[_collectionId].collectionMintCost) {
-                    return collectionAdditionalData[_collectionId].collectionMintCost;
-                } else {
-                    return collectionAdditionalData[_collectionId].collectionMintCost - rate;
-                }
+            // increase minting price by mintcost / collectionPhases[_collectionId].rate every mint (1mint/period)
+            // to get the price rate needs to be set
+            if (collectionPhases[_collectionId].rate > 0) {
+                return collectionPhases[_collectionId].collectionMintCost + ((collectionPhases[_collectionId].collectionMintCost / collectionPhases[_collectionId].rate) * collectionAdditionalData[_collectionId].collectionCirculationSupply);
             } else {
-                return collectionAdditionalData[_collectionId].collectionMintCost;
+                return collectionPhases[_collectionId].collectionMintCost;
+            }
+        } else if (collectionPhases[_collectionId].salesOption == 2 && block.timestamp > collectionPhases[_collectionId].allowlistStartTime && block.timestamp < collectionPhases[_collectionId].publicEndTime){
+            // decreases exponentially every time period
+            // collectionPhases[_collectionId].timePeriod sets the time period for decreasing the mintcost
+            // if just public mint set the publicStartTime = allowlistStartTime
+            // if rate = 0 exponetialy decrease
+            // if rate is set the linear decrase each period per rate
+            tDiff = (block.timestamp - collectionPhases[_collectionId].allowlistStartTime) / collectionPhases[_collectionId].timePeriod;
+            uint256 price;
+            uint256 decreaserate;
+            if (collectionPhases[_collectionId].rate == 0) {
+                price = collectionPhases[_collectionId].collectionMintCost / (tDiff + 1);
+                decreaserate = ((price - (collectionPhases[_collectionId].collectionMintCost / (tDiff + 2))) / collectionPhases[_collectionId].timePeriod) * ((block.timestamp - (tDiff * collectionPhases[_collectionId].timePeriod) - collectionPhases[_collectionId].allowlistStartTime));
+            } else {
+                if (((collectionPhases[_collectionId].collectionMintCost - collectionPhases[_collectionId].collectionEndMintCost) / (collectionPhases[_collectionId].rate)) > tDiff) {
+                    price = collectionPhases[_collectionId].collectionMintCost - (tDiff * collectionPhases[_collectionId].rate);
+                } else {
+                    price = collectionPhases[_collectionId].collectionEndMintCost;
+                }
+            }
+            if (price - decreaserate > collectionPhases[_collectionId].collectionEndMintCost) {
+                return price - decreaserate; 
+            } else {
+                return collectionPhases[_collectionId].collectionEndMintCost;
             }
         } else {
             // fixed price
-            return collectionAdditionalData[_collectionId].collectionMintCost;
+            return collectionPhases[_collectionId].collectionMintCost;
         }
     }
 
