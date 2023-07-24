@@ -64,6 +64,7 @@
 <b>Notes:</b> 
 * This function can be called by the contract deployer or a contract administrator.
 * Once the function is executed the smart contract reserves the min and max indices for the collection.
+* The collection should not be frozen.
 * The collection's circulating supply starts at 0.
 * An admin needs to set the minting phases for a specific collection to start the minting process.
 * The same function can be called by an admin to modify all the details of a collection except its total supply which cannot be modified.
