@@ -4,7 +4,8 @@
 [How to retrieve the info of a specific collection?](#collectionInfo)\
 [How to find the library and the script that are used by a collection?](#collectionLibraryAndScript)\
 [How to retrieve the additional data that were set for a collection?](#CollectionAdditionalData)\
-[How to retrieve a collection's minting phases times and merkle root?](#CollectionPhases)\
+[How to retrieve the minting phases info of a collection?](#CollectionPhases)\
+[How to retrieve the minting details of a collection?](#CollectionMintingDetails)\
 [How to get the generative script of a tokenId?](#GenerativeScript)\
 [How to get the total supply of a collection?](#totalSupply)\
 [How to get the token data stored on-chain for each token id?](#tokenData)\
@@ -109,7 +110,6 @@
 
 <b>Notes:</b> 
 * The collection must exist.
-* Additional Data must be added for a collection.
 
 <!-- end of the list -->
 
@@ -120,13 +120,13 @@
  
     function retrieveCollectionAdditionalData(
       uint256 _collectionID
-    ) public view returns (address, uint256, uint256, uint256, uint256, uint256) {
-      return (collectionArtistAddress, collectionMintCost, maxCollectionPurchases, collectionCirculationSupply, collectionTotalSupply, collectionSalesPercentage);
+    ) public view returns (address, uint256, uint256, uint256, uint256) {
+      return (collectionArtistAddress, maxCollectionPurchases, collectionCirculationSupply, collectionTotalSupply, collectionSalesPercentage);
     }
 
 <div id='CollectionPhases'/>
 
-### How to retrieve a collection's minting phases times and merkle root?
+### How to retrieve the minting phases info of a collection?
 
 <b>Purpose:</b> The <i>retrieveCollectionPhases(..)</i> function retrieves a collection's minting phases times and merkle root.
 
@@ -144,8 +144,32 @@
  
     function retrieveCollectionPhases(
       uint256 _collectionID
-    ) public view returns (uint, uint, bytes32, uint, uint, uint256, uint8) {
-      return (allowlistStartTime, allowlistEndTime, merkleRoot, publicStartTime, publicEndTime, rate, salesOption);
+    ) public view returns (uint, uint, bytes32, uint, uint) {
+      return (allowlistStartTime, allowlistEndTime, merkleRoot, publicStartTime, publicEndTime);
+    }
+
+<div id='CollectionMintingDetails'/>
+
+### How to retrieve the minting details of a collection?
+
+<b>Purpose:</b> The <i>retrieveCollectionMintingDetails(..)</i> function retrieves the minting/ending prices of a collection as well as the rate, the timeperiod and the sales option.
+
+<b>Notes:</b> 
+* The collection must exist.
+* Additional Data must be added for a collection.
+* Collection Phases data must exist.
+
+<!-- end of the list -->
+
+    /**
+      * @dev Retrieve the minting costs as well as the rate and the timeperiod.
+      * @param _collectionID Refers to the specific collection for which the collection minting details will be returned.
+    */
+ 
+    function retrieveCollectionMintingDetails(
+      uint256 _collectionID
+    ) public view returns (uint256, uint256, uint256, uint256, uint8) {
+      return (collectionMintCost, collectionEndMintCost, rate, timePeriod, salesOption);
     }
 
 <div id='GenerativeScript'/>
@@ -242,7 +266,7 @@
 
 ### How to get the current minting cost of a live collection sale?
 
-<b>Purpose:</b> The <i>getPrice(..)</i> function retrieves current minting price of a live collection.
+<b>Purpose:</b> The <i>getPrice(..)</i> function retrieves the current minting price of a live collection based on the sales option set.
 
 <b>Notes:</b> 
 * The collection must exist.
@@ -252,8 +276,8 @@
 <!-- end of the list -->
 
     /**
-      * @dev Retrieve the current minting price of a live collection
-      * @param _collectionID Refers to the specific collection for which the the current price will be returned.
+      * @dev Retrieve the current minting price of a live collection.
+      * @param _collectionID Refers to the specific collection for which the current price will be returned.
     */
  
     function getPrice(
