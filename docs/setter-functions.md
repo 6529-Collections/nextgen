@@ -16,7 +16,6 @@
 [How to burn an existing token and mint a new one?](#burnToMint)\
 [How to update the info of a Collection?](#updateCollectionInfo)\
 [How to update the script of a Collection using an index?](#updateCollectionScriptByIndex)\
-[How to update the additional data already set for a collection?](#updateCollectionAdditionalData)\
 [How to update a collection's baseURI](#updateBaseURI)\
 [How to update the imageURI of a specific token for on-chain purposes?](#updateImages)
 
@@ -60,13 +59,14 @@
 
 ### How to add data on a Collection?
 
-<b>Purpose:</b> The <i>addCollectionData(..)</i> function allows an admin to add the additional data for a Collection such as mintcost, max public purchases, total supply etc.
+<b>Purpose:</b> The <i>addCollectionData(..)</i> function allows an admin to add the additional data for a Collection such as the eth address of the artist, max public purchases, total supply and the sales percentage for the artist.
 
 <b>Notes:</b> 
 * This function can be called by the contract deployer or a contract administrator.
 * Once the function is executed the smart contract reserves the min and max indices for the collection.
 * The collection's circulating supply starts at 0.
 * An admin needs to set the minting phases for a specific collection to start the minting process.
+* The same function can be called by an admin to modify all the details of a collection except its total supply which cannot be modified.
 
 <!-- end of the list -->
 
@@ -74,7 +74,6 @@
       * @dev Add data for a new NextGen collection.
       * @param _collectionID Refers to the collection id for which the data will be added.
       * @param _collectionArtistAddress Refers to the artist's ETH public address.
-      * @param _collectionMintCost Refers to the mint cost of the collection.
       * @param _maxCollectionPurchases Refers to the collection's max purchases/mints during public minting.
       * @param _collectionTotalSupply Refers to the collection's total supply.
       * @param _collectionSalesPercentage Refers to % of the summed minting sale that will be sent to the artist.
@@ -83,7 +82,6 @@
     function addCollectionData(
       uint256 _collectionID,
       address _collectionArtistAddress,
-      uint256 _collectionMintCost,
       uint256 _maxCollectionPurchases,
       uint256 _collectionTotalSupply,
       uint256 _collectionSalesPercentage
@@ -93,26 +91,45 @@
 
 ### How to set the various collection minting phases?
 
-<b>Purpose:</b> The <i>setCollectionPhases(..)</i> function allows an admin to set the start and endtimes for allowlist and public minting. For the allowlist minting an admin needs to set also the MerkleRoot that will be used for verification purposes when the allowlist minting is active.
+<b>Purpose:</b> The <i>setCollectionPhases(..)</i> function allows an admin to set the start and endtimes for allowlist and public minting. For the allowlist minting an admin needs to set also the MerkleRoot that will be used for verification purposes when the allowlist minting is active. In addition within this function an admin can set the starting/ending minting cost as well as to select a sales option with predefined descending/increasing rates for specific time periods.
+
+<b>Sales Options:</b>
+1. Fixed Price. In this case the rate and timeperiod can be set to 0 as the do not affect the price.\
+2. Two types of Sales: Exponential Descending Auction & Linear Descending Sale\
+   i) Exponential Descending Sale\
+   In this sale type the rate needs to be set to 0 and an admin needs to set the starting and ending minting costs as well as the time period.\
+   At each time period the minting cost exponentialy decreases until it reaches its resting price (ending minting cost) and stays there until the auction ends.\
+   ii) Linear Descending Sale\
+   To activate this sale type you need to set the starting and ending minting costs as well as a rate and a time period.\
+   At each time period the minting cost price will decrease based on the rate until it reaches the resting price and stays there until the end of the auction.
+3. 1 mint/period sale\
+   This is a unique sale option that allows an admin to design specific-purpose minting experiences.\
+   At this sale option just 1 nft can be minted at each time period.\
+   If the rate is set to 0 then the minting cost price will not increase per minting.\
+   If the rate is set then the minting cost price will increase based on the tokens minted as well as the rate set.
 
 <b>Notes:</b> 
 * This function can be called by the contract deployer or a contract administrator or a collection administrator.
 * This is the final step for setting up a collection.
 * Minting is active once the collection phases start.
+* If you want to have just a public sale then you need to set the _publicStartTime parameter the same as the _allowlistStartTime and the _allowlistEndTime.
 
 <!-- end of the list -->
 
     /**
-      * @dev Set the various collection phases.
+      * @dev Set the various collection phases as well as other minting parameters.
       * @param _collectionID Refers to the collection id for which the start and endtimes will be set.
       * @param _allowlistStartTime Refers to the allowlist start time in UNIX epoch.
       * @param _allowlistEndTime Refers to the allowlist end time in UNIX epoch.
       * @param _publicStartTime Refers to the public minting start time in UNIX epoch.
       * @param _publicEndTime Refers to the public minting end time in UNIX epoch.
       * @param _merkleRoot Refers to the Merkle Root that will be used for the allowlist minting.
-      * @rate _rate Refers to the descending/increasing rate based on which the minting cost will be updated.
-      * @param _salesOption Refers to minting sale option of a specific collection. 1 = fixed price, 2 = descending price at public sale,
-        3 = 1 mint/day auction with incremental price.
+      * @param _collectionMintCost Refers to the starting/fixed minting cost.
+      * @param _collectionEndMintCost Refers to the ending/resting price of a sale when selecting sale option 2.
+      * @param _rate Refers to the descending/increasing rate based on which the minting cost will be updated.
+      * @param _timePeriod Refers to time period that affects the minting price when selecting sale option 2/3.
+      * @param _salesOption Refers to minting sale option of a specific collection. 1 = fixed price sale, 2 = exponential/linear descending price sale,
+        3 = 1 mint/period sale.
     */
  
     function setCollectionPhases(
@@ -122,8 +139,12 @@
       uint _publicStartTime,
       uint _publicEndTime,
       bytes32 _merkleRoot,
+      uint256 _collectionMintCost,
+      uint256 _collectionEndMintCost,
       uint256 _rate,
-      uint8 salesOption
+      uint256 _timePeriod
+      uint256 _rate,
+      uint8 _salesOption
     ) public collectionOrGlobalAdmin(_collectionID);
 
 <div id='mintingStatus'/>
@@ -201,22 +222,24 @@
 
 ### How to send the collected funds to the Artist?
 
-<b>Purpose:</b> The <i>payArtist(..)</i> function is used to send the funds collected during minting.
+<b>Purpose:</b> The <i>payArtist(..)</i> function is used to send the funds collected during minting to the artist and the team.
 
 <b>Notes:</b> 
 * This function can be called by the contract deployer or a contract administrator.
-* The function sends the collected funds to the artist's address based on the Sales Percentage set when adding the additional data for a collection.
-* The function sends the team's share to the contract's owner wallet.
+* The function sends the collected funds to the artist's address based on the Sales Percentage set when added the additional data of a collection.
+* The function sends the team's share to the wallet specified.
 
 <!-- end of the list -->
 
     /**
       * @dev Send funds collected during minting to the Artist and the Team.
       * @param _collectionID Refers to collection for which the collected funds will be sent.
+      * @param _team Refers to the team's wallet in which the share of the funds will be sent.
     */
  
     function payArtist(
       uint256 _collectionID,
+      address _team
     ) AdminRequired;
 
 <div id='artistSign'/>
@@ -492,37 +515,6 @@
       uint256 _collectionID,
       uint256 _index,
       string memory _newCollectionIndexScript,
-    ) public AdminRequired;
-
-<div id='updateCollectionAdditionalData'/>
-
-### How to update the additional data already set for a collection?
-
-<b>Purpose:</b> The <i>updateCollectionAdditionalData(..)</i> function is used to update the additional data of an already existing collection.
-
-<b>Notes:</b> 
-* This function can be called by the contract deployer or a contract administrator.
-* The collection needs to exist and the initial data already added.
-* The total supply of a collection cannot be updated.
-* The collection should not be frozen.
-
-<!-- end of the list -->
-
-    /**
-      * @dev Update the additional data of an existing collection.
-      * @param _collectionID Refers to the collection that the additional data will be updated.
-      * @param _newCollectionArtistAddress Refers to the new artist's ETH public address.
-      * @param _newCollectionMintCost Refers to the new mint cost of the collection.
-      * @param _newMaxCollectionPurchases Refers to the updated value of max purchases/mints during public minting.
-      * @param _newCollectionSalesPercentage Refers to updated % of royalties for the artist.
-    */
- 
-    function updateCollectionAdditionalData(
-      uint256 _collectionID,
-      address _newCollectionArtistAddress,
-      uint256 _newCollectionMintCost,
-      uint256 _newMaxCollectionPurchases,
-      uint256 _newCollectionSalesPercentage
     ) public AdminRequired;
 
 <div id='updateBaseURI'/>
