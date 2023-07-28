@@ -1,4 +1,4 @@
-// merkle tree generation
+// merkle tree/proofs generation
 const { MerkleTree } = require('merkletreejs');
 const { keccak256 } = require("@ethersproject/keccak256");
 const { hexConcat } = require('@ethersproject/bytes');
