@@ -29,6 +29,8 @@ const txinfo = [
   '7B6E65787467656E7D' // {nextgen}
 ];
 
+// calculate leaves hash
+
 let leaves = allowList.map((addr, index) => {
   const concatenatedData = addr + spots[index] + txinfo[index];
   console.log(concatenatedData);
