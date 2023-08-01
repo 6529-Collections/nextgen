@@ -2,7 +2,7 @@
 
 /**
  *
- *  @title: NextGen Contract
+ *  @title: NextGen Smart Contract
  *  @date: 01-August-2023 
  *  @version: 10.17
  *  @author: 6529 team
