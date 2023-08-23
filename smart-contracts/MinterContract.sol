@@ -3,8 +3,8 @@
 /**
  *
  *  @title: NextGen Minter Contract
- *  @date: 22-August-2023 
- *  @version: 1.0
+ *  @date: 23-August-2023 
+ *  @version: 1.1
  *  @author: 6529 team
  */
 
@@ -424,6 +424,12 @@ contract MinterContract is Ownable{
             // fixed price
             return collectionPhases[_collectionId].collectionMintCost;
         }
+    }
+
+    // get minter status
+
+    function isMinterContract() external view returns (bool) {
+        return true;
     }
 
 }
