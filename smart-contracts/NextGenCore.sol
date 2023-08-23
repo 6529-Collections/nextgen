@@ -3,8 +3,8 @@
 /**
  *
  *  @title: NextGen Smart Contract
- *  @date: 22-August-2023 
- *  @version: 10.18
+ *  @date: 23-August-2023 
+ *  @version: 10.19
  *  @author: 6529 team
  */
 
@@ -17,6 +17,7 @@ import "./Strings.sol";
 import "./Base64.sol";
 import "./IRandomizer.sol";
 import "./INextGenAdmins.sol";
+import "./IMinterContract.sol";
 
 contract NextGenCore is ERC721Enumerable, Ownable {
     using SafeMath for uint256;
@@ -77,14 +78,8 @@ contract NextGenCore is ERC721Enumerable, Ownable {
     // tokens airdrop per address per collection 
     mapping (uint256 => mapping (address => uint256)) private tokensAirdropPerAddress;
 
-    // mint tokens on a specific collection after burning on other collection
-    mapping (uint256 => mapping (uint256 => bool)) public burnToMintCollections;
-
     // current amount of burnt tokens per collection
     mapping (uint256 => uint256) public burnAmount;
-
-    // total amount collected during minting from collections
-    mapping (uint256 => uint256) public collectionTotalAmount;
 
     // modify the metadata view
     mapping (uint256 => bool) public onchainMetadata; 
@@ -177,7 +172,7 @@ contract NextGenCore is ERC721Enumerable, Ownable {
 
     // mint called from minterContract
 
-    function mint(uint256 mintIndex, address _mintingAddress , address _mintTo, string memory _tokenData, uint256 _varg0, uint256 _collectionID, uint256 phase) public {
+    function mint(uint256 mintIndex, address _mintingAddress , address _mintTo, string memory _tokenData, uint256 _varg0, uint256 _collectionID, uint256 phase) external {
         require(msg.sender == minterContract, "Caller is not the Minter Contract");
         collectionAdditionalData[_collectionID].collectionCirculationSupply = collectionAdditionalData[_collectionID].collectionCirculationSupply + 1;
         if (collectionAdditionalData[_collectionID].collectionTotalSupply >= collectionAdditionalData[_collectionID].collectionCirculationSupply) {
@@ -205,7 +200,7 @@ contract NextGenCore is ERC721Enumerable, Ownable {
 
     // burn to mint called from minterContract
 
-    function burnToMint(uint256 mintIndex, uint256 _burnCollectionID, uint256 _tokenId, uint256 _mintCollectionID, uint256 _varg0, address burner) public {
+    function burnToMint(uint256 mintIndex, uint256 _burnCollectionID, uint256 _tokenId, uint256 _mintCollectionID, uint256 _varg0, address burner) external {
         require(msg.sender == minterContract, "Caller is not the Minter Contract");
         require(_isApprovedOrOwner(burner, _tokenId), "ERC721: caller is not token owner or approved");
         collectionAdditionalData[_mintCollectionID].collectionCirculationSupply = collectionAdditionalData[_mintCollectionID].collectionCirculationSupply + 1;
@@ -294,20 +289,25 @@ contract NextGenCore is ERC721Enumerable, Ownable {
     // function change the status of a collection admin
 
     function addMinterContract(address _minterContract) public FunctionAdminRequired(this.addMinterContract.selector) { 
+        require(IMinterContract(_minterContract).isMinterContract() == true);
         minterContract = _minterContract;
     }
 
     // function change to update contracts
 
-    function updateContracts(address _newRandomizer, address _newadminsContract, address _newminterContract) public FunctionAdminRequired(this.updateContracts.selector) { 
+    function updateRandomizerContract(address _newRandomizer) public FunctionAdminRequired(this.updateRandomizerContract.selector) { 
         randomizer = IRandomizer(_newRandomizer);
+    }
+
+    // function change to update contracts
+
+    function updateAdminContract(address _newadminsContract) public FunctionAdminRequired(this.updateAdminContract.selector) {
         adminsContract = INextGenAdmins(_newadminsContract);
-        minterContract = _newminterContract;
     }
 
     // function change to admin contract
 
-    function updateAdminContract(address _newadminsContract) public onlyOwner { 
+    function updateAdminContractOwner(address _newadminsContract) public onlyOwner { 
         adminsContract = INextGenAdmins(_newadminsContract);
     }
 
@@ -327,14 +327,19 @@ contract NextGenCore is ERC721Enumerable, Ownable {
         }
     }
 
+    // retrieve the collection freeze status
+    function collectionFreezeStatus(uint256 _collectionID) public view returns(bool){
+        return collectionFreeze[_collectionID];
+    }
+
+    // function to return the collection id given a token id
+    function viewColIDforTokenID(uint256 _tokenid) public view returns (uint256) {
+        return(tokenIdsToCollectionIds[_tokenid]);
+    }
+
     // retrieve if data were added
     function retrievewereDataAdded(uint256 _collectionID) external view returns(bool){
         return wereDataAdded[_collectionID];
-    }
-
-    // retrieve the collection freeze status
-    function collectionFreezeStatus(uint256 _collectionID) external view returns(bool){
-        return collectionFreeze[_collectionID];
     }
 
     // function to return the min index id of a collection
@@ -355,27 +360,22 @@ contract NextGenCore is ERC721Enumerable, Ownable {
     }
 
     // function to return max allowance in public sale
-    function viewMaxAllowance(uint256 _collectionID) public view returns (uint256) {
+    function viewMaxAllowance(uint256 _collectionID) external view returns (uint256) {
         return(collectionAdditionalData[_collectionID].maxCollectionPurchases);
     }
 
-    // function to return the collection id given a token id
-    function viewColIDforTokenID(uint256 _tokenid) public view returns (uint256) {
-        return(tokenIdsToCollectionIds[_tokenid]);
-    }
-
     // function to return tokens minted per address during AL
-    function retrieveTokensMintedALPerAddress(uint256 _collectionID, address _address) public view returns(uint256) {
+    function retrieveTokensMintedALPerAddress(uint256 _collectionID, address _address) external view returns(uint256) {
         return (tokensMintedAllowlistAddress[_collectionID][_address]);
     }
 
     // function to return tokens minted per address during Public
-    function retrieveTokensMintedPublicPerAddress(uint256 _collectionID, address _address) public view returns(uint256) {
+    function retrieveTokensMintedPublicPerAddress(uint256 _collectionID, address _address) external view returns(uint256) {
         return (tokensMintedPerAddress[_collectionID][_address]);
     }
 
     // function to return the artist's address
-    function retrieveArtistAddress(uint256 _collectionID) public view returns(address) {
+    function retrieveArtistAddress(uint256 _collectionID) external view returns(address) {
         return (collectionAdditionalData[_collectionID].collectionArtistAddress);
     }
 
