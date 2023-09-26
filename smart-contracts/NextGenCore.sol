@@ -3,8 +3,8 @@
 /**
  *
  *  @title: NextGen Smart Contract
- *  @date: 23-August-2023 
- *  @version: 10.19
+ *  @date: 26-September-2023 
+ *  @version: 10.20
  *  @author: 6529 team
  */
 
@@ -284,6 +284,14 @@ contract NextGenCore is ERC721Enumerable, Ownable {
     function freezeCollection(uint256 _collectionID) public FunctionAdminRequired(this.freezeCollection.selector) {
         require(isCollectionCreated[_collectionID] == true, "No Col");
         collectionFreeze[_collectionID] = true;
+    }
+
+    // set final supply
+
+    function setFinalSupply(uint256 _collectionID) public FunctionAdminRequired(this.setFinalSupply.selector) {
+        require (block.timestamp > IMinterContract(minterContract).getEndTime(_collectionID) + 30 days, "Time has not passed");
+        collectionAdditionalData[_collectionID].collectionTotalSupply = collectionAdditionalData[_collectionID].collectionCirculationSupply;
+        collectionAdditionalData[_collectionID].reservedMaxTokensIndex = (_collectionID * 10000000000) + collectionAdditionalData[_collectionID].collectionTotalSupply - 1;
     }
 
     // function change the status of a collection admin

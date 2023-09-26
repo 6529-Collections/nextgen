@@ -3,8 +3,8 @@
 /**
  *
  *  @title: NextGen Minter Contract
- *  @date: 23-August-2023 
- *  @version: 1.1
+ *  @date: 26-September-2023 
+ *  @version: 1.2
  *  @author: 6529 team
  */
 
@@ -109,12 +109,6 @@ contract MinterContract is Ownable{
         adminsContract = INextGenAdmins(_adminsContract);
     }
 
-    // certain functions can only be called by an admin or the collection admin
-    modifier collectionAdminOrGlobal(uint256 _collectionID) {
-      require(adminsContract.retrieveCollectionAdmin(msg.sender,_collectionID) == true || adminsContract.retrieveGlobalAdmin(msg.sender) == true, "Not allowed");
-      _;
-    }
-
     // certain functions can only be called by an admin or the artist
     modifier ArtistOrAdminRequired(uint256 _collectionID, bytes4 _selector) {
       require(msg.sender == gencore.retrieveArtistAddress(_collectionID) || adminsContract.retrieveFunctionAdmin(msg.sender, _selector) == true || adminsContract.retrieveGlobalAdmin(msg.sender) == true, "Not allowed");
@@ -142,7 +136,7 @@ contract MinterContract is Ownable{
 
     // function to add a collection's start/end times and merkleroot
 
-    function setCollectionPhases(uint256 _collectionID, uint _allowlistStartTime, uint _allowlistEndTime, uint _publicStartTime, uint _publicEndTime, bytes32 _merkleRoot) public collectionAdminOrGlobal(_collectionID) {
+    function setCollectionPhases(uint256 _collectionID, uint _allowlistStartTime, uint _allowlistEndTime, uint _publicStartTime, uint _publicEndTime, bytes32 _merkleRoot) public FunctionAdminRequired(this.setCollectionPhases.selector) {
         require(setMintingCosts[_collectionID] == true, "Set Minting Costs");
         collectionPhases[_collectionID].allowlistStartTime = _allowlistStartTime;
         collectionPhases[_collectionID].allowlistEndTime = _allowlistEndTime;
@@ -384,6 +378,18 @@ contract MinterContract is Ownable{
         return (collectionPhases[_collectionID].collectionMintCost, collectionPhases[_collectionID].collectionEndMintCost, collectionPhases[_collectionID].rate, collectionPhases[_collectionID].timePeriod, collectionPhases[_collectionID].salesOption);
     }
 
+    // get minter contract status
+
+    function isMinterContract() external view returns (bool) {
+        return true;
+    }
+
+    // get minting end time
+
+    function getEndTime(uint256 _collectionID) external view returns (uint) {
+        return collectionPhases[_collectionID].publicEndTime;
+    }
+
     // get the minting price of collection
 
     function getPrice(uint256 _collectionId) public view returns (uint256) {
@@ -424,12 +430,6 @@ contract MinterContract is Ownable{
             // fixed price
             return collectionPhases[_collectionId].collectionMintCost;
         }
-    }
-
-    // get minter status
-
-    function isMinterContract() external view returns (bool) {
-        return true;
     }
 
 }

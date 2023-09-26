@@ -3,8 +3,8 @@
 /**
  *
  *  @title: NextGen Admin Contract
- *  @date: 22-August-2023 
- *  @version: 1.0
+ *  @date: 26-September-2023 
+ *  @version: 1.1
  *  @author: 6529 team
  */
 
@@ -27,9 +27,8 @@ contract NextGenAdmins is Ownable{
     // nftdelegation management contract
     IDelegationManagementContract public dmc;
 
-    constructor(address _del) {
+    constructor() {
         adminPermissions[msg.sender] = true;
-        dmc = IDelegationManagementContract(_del);
     }
 
     // certain functions can only be called by an admin
@@ -42,13 +41,6 @@ contract NextGenAdmins is Ownable{
 
     function registerAdmin(address _admin, bool _status) public onlyOwner {
         adminPermissions[_admin] = _status;
-    }
-
-    // function to register a collection admin
-
-    function registerCollectionAdmin(uint256 _collectionID, address _address, bool _status) public AdminRequired {
-        require(_collectionID > 0, "Collection Id must be larger than 0");
-        collectionAdmin[_address][_collectionID] = _status;
     }
 
     // function to register function admin
@@ -65,49 +57,10 @@ contract NextGenAdmins is Ownable{
         }
     }
 
-    // function to register a global admin via nftdelegation
-
-    function registerAdminWithDelegation(address _delegator, address _admin, bool _status) public {
-        bool isAllowed;
-        isAllowed = dmc.retrieveGlobalStatusOfDelegation(_delegator, 0x8888888888888888888888888888888888888888, msg.sender, 1);
-        require(isAllowed == true, "Not allowed");
-        require(_delegator == owner(), "Delegator is not owner");
-        adminPermissions[_admin] = _status;
-    } 
-
-    // function to register a collection admin via nftdelegation
-
-    function registerCollectionAdminWithDelegation(address _delegator, uint256 _collectionID, address _address, bool _status) public {
-        bool isAllowed;
-        isAllowed = dmc.retrieveGlobalStatusOfDelegation(_delegator, 0x8888888888888888888888888888888888888888, msg.sender, 1);
-        require(isAllowed == true, "Not allowed");
-        require(adminPermissions[_delegator] == true, "Delegator is not an admin");
-        require(_collectionID > 0, "Collection Id must be larger than 0");
-        collectionAdmin[_address][_collectionID] = _status;
-    }
-
-    // function to retrieve global or collection admins
-
-    function retrieveAdmin(address _address, uint256 _collectionID) public view returns(bool) {
-        if (_collectionID == 0) {
-            return adminPermissions[_address];
-        } else if (_collectionID > 0) {
-             return collectionAdmin[_address][_collectionID];
-        } else {
-            revert("Caller is not an Admin");
-        }
-    }
-
     // function to retrieve global admin
 
     function retrieveGlobalAdmin(address _address) public view returns(bool) {
         return adminPermissions[_address];
-    }
-
-    // function to retrieve collection admin
-
-    function retrieveCollectionAdmin(address _address, uint256 _collectionID) public view returns(bool) {
-        return collectionAdmin[_address][_collectionID];
     }
 
     // function to retrieve collection admin
