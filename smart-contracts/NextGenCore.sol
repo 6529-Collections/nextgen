@@ -4,7 +4,7 @@
  *
  *  @title: NextGen Smart Contract
  *  @date: 27-September-2023 
- *  @version: 10.20
+ *  @version: 10.21
  *  @author: 6529 team
  */
 
@@ -295,28 +295,24 @@ contract NextGenCore is ERC721Enumerable, Ownable {
         collectionAdditionalData[_collectionID].reservedMaxTokensIndex = (_collectionID * 10000000000) + collectionAdditionalData[_collectionID].collectionTotalSupply - 1;
     }
 
-    // function change the status of a collection admin
+    // function to add a minter contract
 
     function addMinterContract(address _minterContract) public FunctionAdminRequired(this.addMinterContract.selector) { 
-        require(IMinterContract(_minterContract).isMinterContract() == true);
+        require(IMinterContract(_minterContract).isMinterContract() == true, "Contract is not Minter");
         minterContract = _minterContract;
     }
 
-    // function change to update contracts
+    // function to update the randomizer contract
 
     function updateRandomizerContract(address _newRandomizer) public FunctionAdminRequired(this.updateRandomizerContract.selector) { 
+        require(IRandomizer(_newRandomizer).isRandomizerContract() == true, "Contract is not Randomizer");
         randomizer = IRandomizer(_newRandomizer);
     }
 
-    // function change to update contracts
+    // function to update admin contract
 
     function updateAdminContract(address _newadminsContract) public FunctionAdminRequired(this.updateAdminContract.selector) {
-        adminsContract = INextGenAdmins(_newadminsContract);
-    }
-
-    // function change to admin contract
-
-    function updateAdminContractOwner(address _newadminsContract) public onlyOwner { 
+        require(INextGenAdmins(_newadminsContract).isAdminContract() == true, "Contract is not Admin");
         adminsContract = INextGenAdmins(_newadminsContract);
     }
 

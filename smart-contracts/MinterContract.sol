@@ -3,8 +3,8 @@
 /**
  *
  *  @title: NextGen Minter Contract
- *  @date: 26-September-2023 
- *  @version: 1.2
+ *  @date: 27-September-2023 
+ *  @version: 1.3
  *  @author: 6529 team
  */
 
@@ -329,16 +329,16 @@ contract MinterContract is Ownable{
         collectionTotalAmount[_collectionID] = 0;
     }
 
-    // function to change contracts
+    // function to update core contract
 
-    function updateContracts(address _gencore, address _adminsContract) public FunctionAdminRequired(this.updateContracts.selector) { 
+    function updateCoreContract(address _gencore) public FunctionAdminRequired(this.updateCoreContract.selector) { 
         gencore = INextGenCore(_gencore);
-        adminsContract = INextGenAdmins(_adminsContract);
     }
 
-    // function change to admin contract
+    // function to update admin contract
 
-    function updateAdminContract(address _newadminsContract) public onlyOwner { 
+    function updateAdminContract(address _newadminsContract) public FunctionAdminRequired(this.updateAdminContract.selector) {
+        require(INextGenAdmins(_newadminsContract).isAdminContract() == true, "Contract is not Admin");
         adminsContract = INextGenAdmins(_newadminsContract);
     }
 
