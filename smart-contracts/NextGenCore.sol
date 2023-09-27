@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: MIT
-// function admins 
+
 /**
  *
  *  @title: NextGen Smart Contract
- *  @date: 26-September-2023 
+ *  @date: 27-September-2023 
  *  @version: 10.20
  *  @author: 6529 team
  */
@@ -251,6 +251,7 @@ contract NextGenCore is ERC721Enumerable, Ownable {
     // function change metadata view 
 
     function changeMetadataView(uint256 _collectionID, bool _status) public FunctionAdminRequired(this.changeMetadataView.selector) { 
+        require((isCollectionCreated[_collectionID] == true) && (collectionFreeze[_collectionID] == false), "Not allowed");
         onchainMetadata[_collectionID] = _status;
     }
 
