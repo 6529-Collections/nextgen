@@ -122,9 +122,16 @@ contract MinterContract is Ownable{
       _;
     }
 
+    // certain functions can only be called by a collection, global or function admin
+
+    modifier CollectionAdminRequired(uint256 _collectionID, bytes4 _selector) {
+      require(adminsContract.retrieveCollectionAdmin(msg.sender,_collectionID) == true || adminsContract.retrieveFunctionAdmin(msg.sender, _selector) == true || adminsContract.retrieveGlobalAdmin(msg.sender) == true, "Not allowed");
+      _;
+    }
+
     // function to add a collection's minting costs
 
-    function setCollectionCosts(uint256 _collectionID, uint256 _collectionMintCost, uint256 _collectionEndMintCost, uint256 _rate, uint256 _timePeriod, uint8 _salesOption) public FunctionAdminRequired(this.setCollectionCosts.selector) {
+    function setCollectionCosts(uint256 _collectionID, uint256 _collectionMintCost, uint256 _collectionEndMintCost, uint256 _rate, uint256 _timePeriod, uint8 _salesOption) public CollectionAdminRequired(_collectionID, this.setCollectionCosts.selector) {
         require(gencore.retrievewereDataAdded(_collectionID) == true, "Add data");
         collectionPhases[_collectionID].collectionMintCost = _collectionMintCost;
         collectionPhases[_collectionID].collectionEndMintCost = _collectionEndMintCost;
@@ -136,7 +143,7 @@ contract MinterContract is Ownable{
 
     // function to add a collection's start/end times and merkleroot
 
-    function setCollectionPhases(uint256 _collectionID, uint _allowlistStartTime, uint _allowlistEndTime, uint _publicStartTime, uint _publicEndTime, bytes32 _merkleRoot) public FunctionAdminRequired(this.setCollectionPhases.selector) {
+    function setCollectionPhases(uint256 _collectionID, uint _allowlistStartTime, uint _allowlistEndTime, uint _publicStartTime, uint _publicEndTime, bytes32 _merkleRoot) public CollectionAdminRequired(_collectionID, this.setCollectionPhases.selector) {
         require(setMintingCosts[_collectionID] == true, "Set Minting Costs");
         collectionPhases[_collectionID].allowlistStartTime = _allowlistStartTime;
         collectionPhases[_collectionID].allowlistEndTime = _allowlistEndTime;

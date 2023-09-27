@@ -118,6 +118,13 @@ contract NextGenCore is ERC721Enumerable, Ownable {
       _;
     }
 
+    // certain functions can only be called by a collection, global or function admin
+
+    modifier CollectionAdminRequired(uint256 _collectionID, bytes4 _selector) {
+      require(adminsContract.retrieveCollectionAdmin(msg.sender,_collectionID) == true || adminsContract.retrieveFunctionAdmin(msg.sender, _selector) == true || adminsContract.retrieveGlobalAdmin(msg.sender) == true, "Not allowed");
+      _;
+    }
+
     // function to create a Collection
 
     function createCollection(string memory _collectionName, string memory _collectionArtist, string memory _collectionDescription, string memory _collectionWebsite, string memory _collectionLicense, string memory _collectionBaseURI, string memory _collectionLibrary, string[] memory _collectionScript) public FunctionAdminRequired(this.createCollection.selector) {
@@ -137,7 +144,7 @@ contract NextGenCore is ERC721Enumerable, Ownable {
     // once a collection is created and total supply is set it cannot be changed
     // only _collectionArtistAddress , _maxCollectionPurchases can change after total supply is set
 
-    function setCollectionData(uint256 _collectionID, address _collectionArtistAddress, uint256 _maxCollectionPurchases, uint256 _collectionTotalSupply) public FunctionAdminRequired(this.setCollectionData.selector) {
+    function setCollectionData(uint256 _collectionID, address _collectionArtistAddress, uint256 _maxCollectionPurchases, uint256 _collectionTotalSupply) public CollectionAdminRequired(_collectionID, this.setCollectionData.selector) {
         require((isCollectionCreated[_collectionID] == true) && (collectionFreeze[_collectionID] == false) && (_collectionTotalSupply <= 10000000000), "wrong/freezed");
         if (collectionAdditionalData[_collectionID].collectionTotalSupply == 0) {
             collectionAdditionalData[_collectionID].collectionArtistAddress = _collectionArtistAddress;
@@ -221,7 +228,7 @@ contract NextGenCore is ERC721Enumerable, Ownable {
 
     // function to update Collection Info
 
-    function updateCollectionInfo(uint256 _collectionID, string memory _newCollectionName, string memory _newCollectionArtist, string memory _newCollectionDescription, string memory _newCollectionWebsite, string memory _newCollectionLicense, string memory _newCollectionLibrary, string[] memory _newCollectionScript) public FunctionAdminRequired(this.updateCollectionInfo.selector) {
+    function updateCollectionInfo(uint256 _collectionID, string memory _newCollectionName, string memory _newCollectionArtist, string memory _newCollectionDescription, string memory _newCollectionWebsite, string memory _newCollectionLicense, string memory _newCollectionLibrary, string[] memory _newCollectionScript) public CollectionAdminRequired(_collectionID, this.updateCollectionInfo.selector) {
         require((isCollectionCreated[_collectionID] == true) && (collectionFreeze[_collectionID] == false), "Not allowed");
         collectionInfo[_collectionID].collectionName = _newCollectionName;
         collectionInfo[_collectionID].collectionArtist = _newCollectionArtist;
@@ -234,7 +241,7 @@ contract NextGenCore is ERC721Enumerable, Ownable {
 
     // function to update Collection Script By Index
 
-    function updateCollectionScriptByIndex(uint256 _collectionID, uint256 _index, string memory _newCollectionIndexScript) public FunctionAdminRequired(this.updateCollectionScriptByIndex.selector) {
+    function updateCollectionScriptByIndex(uint256 _collectionID, uint256 _index, string memory _newCollectionIndexScript) public CollectionAdminRequired(_collectionID, this.updateCollectionScriptByIndex.selector) {
         require((isCollectionCreated[_collectionID] == true) && (collectionFreeze[_collectionID] == false), "Not allowed");
         collectionInfo[_collectionID].collectionScript[_index] = _newCollectionIndexScript;
     }
@@ -250,7 +257,7 @@ contract NextGenCore is ERC721Enumerable, Ownable {
 
     // function change metadata view 
 
-    function changeMetadataView(uint256 _collectionID, bool _status) public FunctionAdminRequired(this.changeMetadataView.selector) { 
+    function changeMetadataView(uint256 _collectionID, bool _status) public CollectionAdminRequired(_collectionID, this.changeMetadataView.selector) { 
         require((isCollectionCreated[_collectionID] == true) && (collectionFreeze[_collectionID] == false), "Not allowed");
         onchainMetadata[_collectionID] = _status;
     }
@@ -265,7 +272,7 @@ contract NextGenCore is ERC721Enumerable, Ownable {
 
     // function to update the baseuri
 
-    function updateBaseURI(uint256 _collectionID, string memory _newCollectionBaseURI) public FunctionAdminRequired(this.updateBaseURI.selector) {
+    function updateBaseURI(uint256 _collectionID, string memory _newCollectionBaseURI) public CollectionAdminRequired(_collectionID, this.updateBaseURI.selector) {
         require((isCollectionCreated[_collectionID] == true) && (collectionFreeze[_collectionID] == false), "Not allowed");
         collectionInfo[_collectionID].collectionBaseURI = _newCollectionBaseURI;
     }

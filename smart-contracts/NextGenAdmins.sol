@@ -57,6 +57,13 @@ contract NextGenAdmins is Ownable{
         }
     }
 
+    // function to register a collection admin
+
+    function registerCollectionAdmin(uint256 _collectionID, address _address, bool _status) public AdminRequired {
+        require(_collectionID > 0, "Collection Id must be larger than 0");
+        collectionAdmin[_address][_collectionID] = _status;
+    }
+
     // function to retrieve global admin
 
     function retrieveGlobalAdmin(address _address) public view returns(bool) {
@@ -67,6 +74,12 @@ contract NextGenAdmins is Ownable{
 
     function retrieveFunctionAdmin(address _address, bytes4 _selector) public view returns(bool) {
         return functionAdmin[_address][_selector];
+    }
+
+    // function to retrieve collection admin
+
+    function retrieveCollectionAdmin(address _address, uint256 _collectionID) public view returns(bool) {
+        return collectionAdmin[_address][_collectionID];
     }
 
     // get admin contract status
