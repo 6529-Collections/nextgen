@@ -349,6 +349,13 @@ contract MinterContract is Ownable{
         adminsContract = INextGenAdmins(_newadminsContract);
     }
 
+    // function to withdraw any balance from the smart contract
+
+    function emergencyWithdraw() public FunctionAdminRequired(this.emergencyWithdraw.selector) {
+        uint balance = address(this).balance;
+        payable(msg.sender).transfer(balance);
+    }
+
     // function to retrieve primary splits between artist and team
 
     function retrievePrimarySplits(uint256 _collectionID) public view returns(uint256, uint256){
