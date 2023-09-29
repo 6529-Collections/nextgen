@@ -1,8 +1,8 @@
 # NextGen
 
-NextGen is a set of smart contracts that allows you to create multiple ERC721 collections and supports the creation of generative art NFTs as well as the generation of the corresponding metadata using on-chain data.
+NextGen consists of a set of smart contracts that allows you to create multiple ERC721 collections under a single smart contract address. 
 
-This repo contains the smart contract as well as the docs of the NextGen smart contract.
+The NextGen architecture is divided into 4 main smart contracts: Core, Minter, Admin and Randomizer. The Core contract integrates with the other contracts to provide flexible, adjustable, and scalable functionality.
 
 ## Docs
 
