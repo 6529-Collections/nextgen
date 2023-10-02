@@ -3,8 +3,8 @@
 /**
  *
  *  @title: NextGen Minter Contract
- *  @date: 27-September-2023 
- *  @version: 1.3
+ *  @date: 02-October-2023 
+ *  @version: 1.4
  *  @author: 6529 team
  */
 
@@ -15,6 +15,7 @@ import "./Ownable.sol";
 import "./IDelegationManagementContract.sol";
 import "./MerkleProof.sol";
 import "./INextGenAdmins.sol";
+import "./IERC721.sol";
 
 contract MinterContract is Ownable{
 
@@ -24,8 +25,17 @@ contract MinterContract is Ownable{
     // sales Option3 timestamp of last mint
     mapping (uint256 => uint) public lastMintDate;
 
-    // mint tokens on a specific collection after burning on other collection
+    // burn or swap address for external collections
+    mapping (bytes32 => address) public burnOrSwapAddress;
+
+    // burn or swap external collection ids
+    mapping (bytes32 => uint256[2]) public burnOrSwapIds;
+
+    // mint tokens on a specific collection after burning a token on a NextGen collection
     mapping (uint256 => mapping (uint256 => bool)) public burnToMintCollections;
+
+    // mint tokens on a specific collection after burning a token on an external collection
+    mapping (bytes32 => mapping (uint256 => bool)) public burnExternalToMintCollections;
 
     // sales Option3 timestamp of last mint
     mapping (uint256 => bool) public setMintingCosts;
@@ -102,11 +112,16 @@ contract MinterContract is Ownable{
     IDelegationManagementContract public dmc;
     INextGenAdmins public adminsContract;
 
+    // other 
+
+    address public alMintDelegationCol;
+
     // constructor
     constructor (address _gencore, address _del, address _adminsContract) {
         gencore = INextGenCore(_gencore);
         dmc = IDelegationManagementContract(_del);
         adminsContract = INextGenAdmins(_adminsContract);
+        alMintDelegationCol = 0x33FD426905F149f8376e227d0C9D3340AaD17aF1;
     }
 
     // certain functions can only be called by an admin or the artist
@@ -182,7 +197,7 @@ contract MinterContract is Ownable{
                 bool isAllowedToMint;
                 isAllowedToMint = dmc.retrieveGlobalStatusOfDelegation(_delegator, 0x8888888888888888888888888888888888888888, msg.sender, 1) || dmc.retrieveGlobalStatusOfDelegation(_delegator, 0x8888888888888888888888888888888888888888, msg.sender, 2);
                 if (isAllowedToMint == false) {
-                isAllowedToMint = dmc.retrieveGlobalStatusOfDelegation(_delegator, 0x33FD426905F149f8376e227d0C9D3340AaD17aF1, msg.sender, 1) || dmc.retrieveGlobalStatusOfDelegation(_delegator, 0x33FD426905F149f8376e227d0C9D3340AaD17aF1, msg.sender, 2);    
+                isAllowedToMint = dmc.retrieveGlobalStatusOfDelegation(_delegator, alMintDelegationCol, msg.sender, 1) || dmc.retrieveGlobalStatusOfDelegation(_delegator, alMintDelegationCol, msg.sender, 2);    
                 }
                 require(isAllowedToMint == true, "No delegation");
                 node = keccak256(abi.encodePacked(_delegator, _maxAllowance, tokData));
@@ -229,7 +244,7 @@ contract MinterContract is Ownable{
         }
     }
 
-    // burn to mint function
+    // burn to mint function (does not require contract approval)
 
     function burnToMint(uint256 _burnCollectionID, uint256 _tokenId, uint256 _mintCollectionID, uint256 _varg0) public payable {
         require(burnToMintCollections[_burnCollectionID][_mintCollectionID] == true, "Initialize burn");
@@ -247,11 +262,71 @@ contract MinterContract is Ownable{
         collectionTotalAmount[_mintCollectionID] = collectionTotalAmount[_mintCollectionID] + msg.value;
     }
 
-    // function to initialize burn
+    // function to update allowlist mint delegation collection
+
+    function updateALCol(address _collectionAddress) public FunctionAdminRequired(this.updateALCol.selector) { 
+        alMintDelegationCol = _collectionAddress;
+    }
+
+    // function to initialize burn to mint for NextGen collections
 
     function initializeBurn(uint256 _burnCollectionID, uint256 _mintCollectionID, bool _status) public FunctionAdminRequired(this.initializeBurn.selector) { 
         require((gencore.retrievewereDataAdded(_burnCollectionID) == true) && (gencore.retrievewereDataAdded(_mintCollectionID) == true), "No data");
         burnToMintCollections[_burnCollectionID][_mintCollectionID] = _status;
+    }
+
+    // function to initialize external burn or swap to mint (requires contract approval)
+
+    function initializeExternalBurnOrSwap(address _erc721Collection, uint256 _burnCollectionID, uint256 _mintCollectionID, uint256 _tokmin, uint256 _tokmax, address _burnOrSwapAddress, bool _status) public FunctionAdminRequired(this.initializeExternalBurnOrSwap.selector) { 
+        bytes32 externalCol = keccak256(abi.encodePacked(_erc721Collection,_burnCollectionID));
+        require((gencore.retrievewereDataAdded(_mintCollectionID) == true), "No data");
+        burnExternalToMintCollections[externalCol][_mintCollectionID] = _status;
+        burnOrSwapAddress[externalCol] = _burnOrSwapAddress;
+        burnOrSwapIds[externalCol][0] = _tokmin;
+        burnOrSwapIds[externalCol][1] = _tokmax;
+    }
+
+    // burn or swap to mint (requires contract approval)
+
+    function burnOrSwapExternalToMint(address _erc721Collection, uint256 _burnCollectionID, uint256 _tokenId, uint256 _mintCollectionID, string memory _tokenData, bytes32[] calldata merkleProof, uint256 _varg0) public payable {
+        bytes32 externalCol = keccak256(abi.encodePacked(_erc721Collection,_burnCollectionID));
+        require(burnExternalToMintCollections[externalCol][_mintCollectionID] == true, "Initialize external burn");
+        require(setMintingCosts[_mintCollectionID] == true, "Set Minting Costs");
+        address ownerOfToken = IERC721(_erc721Collection).ownerOf(_tokenId);
+        if (msg.sender != ownerOfToken) {
+            bool isAllowedToMint;
+            isAllowedToMint = dmc.retrieveGlobalStatusOfDelegation(ownerOfToken, 0x8888888888888888888888888888888888888888, msg.sender, 1) || dmc.retrieveGlobalStatusOfDelegation(ownerOfToken, 0x8888888888888888888888888888888888888888, msg.sender, 2);
+            if (isAllowedToMint == false) {
+            isAllowedToMint = dmc.retrieveGlobalStatusOfDelegation(ownerOfToken, _erc721Collection, msg.sender, 1) || dmc.retrieveGlobalStatusOfDelegation(ownerOfToken, _erc721Collection, msg.sender, 2);    
+            }
+            require(isAllowedToMint == true, "No delegation");
+        }
+        require(_tokenId >= burnOrSwapIds[externalCol][0] && _tokenId <= burnOrSwapIds[externalCol][1], "Token id does not match");
+        IERC721(_erc721Collection).safeTransferFrom(ownerOfToken, burnOrSwapAddress[externalCol], _tokenId);
+        uint256 col = _mintCollectionID;
+        address mintingAddress;
+        uint256 phase;
+        string memory tokData = _tokenData;
+        if (block.timestamp >= collectionPhases[col].allowlistStartTime && block.timestamp <= collectionPhases[col].allowlistEndTime) {
+            phase = 1;
+            bytes32 node;
+            node = keccak256(abi.encodePacked(_tokenId, tokData));
+            mintingAddress = msg.sender;
+            require(MerkleProof.verifyCalldata(merkleProof, collectionPhases[col].merkleRoot, node), 'invalid proof');            
+        } else if (block.timestamp >= collectionPhases[col].publicStartTime && block.timestamp <= collectionPhases[col].publicEndTime) {
+            phase = 2;
+            mintingAddress = msg.sender;
+            tokData = '"public"';
+        } else {
+            revert("No minting");
+        }
+        uint256 collectionTokenMintIndex;
+        collectionTokenMintIndex = gencore.viewTokensIndexMin(col) + gencore.viewCirSupply(col);
+        require(collectionTokenMintIndex <= gencore.viewTokensIndexMax(col), "No supply");
+        require(msg.value >= (getPrice(col) * 1), "Wrong ETH");
+        uint256 mintIndex = gencore.viewTokensIndexMin(col) + gencore.viewCirSupply(col);
+        gencore.mint(mintIndex, mintingAddress, ownerOfToken, tokData, _varg0, col, phase);
+        collectionTotalAmount[col] = collectionTotalAmount[col] + msg.value;
     }
 
     // function to set primary splits
@@ -390,6 +465,12 @@ contract MinterContract is Ownable{
 
     function retrieveCollectionMintingDetails(uint256 _collectionID) public view returns(uint256, uint256, uint256, uint256, uint8){
         return (collectionPhases[_collectionID].collectionMintCost, collectionPhases[_collectionID].collectionEndMintCost, collectionPhases[_collectionID].rate, collectionPhases[_collectionID].timePeriod, collectionPhases[_collectionID].salesOption);
+    }
+
+    // function retrieve external collection address and burncollection id
+
+    function retrieveKeccakForExtCol(address _erc721Collection, uint256 _burnCollectionID) public view returns (bytes32) {
+        return keccak256(abi.encodePacked(_erc721Collection,_burnCollectionID));
     }
 
     // get minter contract status

@@ -3,8 +3,8 @@
 /**
  *
  *  @title: NextGen Smart Contract
- *  @date: 27-September-2023 
- *  @version: 10.21
+ *  @date: 02-October-2023 
+ *  @version: 10.22
  *  @author: 6529 team
  */
 
@@ -50,6 +50,7 @@ contract NextGenCore is ERC721Enumerable, Ownable {
         uint256 collectionSalesPercentage;
         uint256 reservedMinTokensIndex;
         uint256 reservedMaxTokensIndex;
+        uint setFinalSupplyTimeAfterMint;
     }
 
     // mapping of collectionAdditionalData struct
@@ -90,8 +91,8 @@ contract NextGenCore is ERC721Enumerable, Ownable {
     // tokens additional metadata
     mapping (uint256 => string) public tokenData;
 
-    // on-chain token Image URI
-    mapping (uint256 => string) public tokenImage;
+    // on-chain token Image URI and attributes
+    mapping (uint256 => string[2]) public tokenImageAndAttri;
 
     // collectionFreeze Thumbnail
     mapping (uint256 => bool) private collectionFreeze;
@@ -144,21 +145,24 @@ contract NextGenCore is ERC721Enumerable, Ownable {
     // once a collection is created and total supply is set it cannot be changed
     // only _collectionArtistAddress , _maxCollectionPurchases can change after total supply is set
 
-    function setCollectionData(uint256 _collectionID, address _collectionArtistAddress, uint256 _maxCollectionPurchases, uint256 _collectionTotalSupply) public CollectionAdminRequired(_collectionID, this.setCollectionData.selector) {
+    function setCollectionData(uint256 _collectionID, address _collectionArtistAddress, uint256 _maxCollectionPurchases, uint256 _collectionTotalSupply, uint _setFinalSupplyTimeAfterMint) public CollectionAdminRequired(_collectionID, this.setCollectionData.selector) {
         require((isCollectionCreated[_collectionID] == true) && (collectionFreeze[_collectionID] == false) && (_collectionTotalSupply <= 10000000000), "wrong/freezed");
         if (collectionAdditionalData[_collectionID].collectionTotalSupply == 0) {
             collectionAdditionalData[_collectionID].collectionArtistAddress = _collectionArtistAddress;
             collectionAdditionalData[_collectionID].maxCollectionPurchases = _maxCollectionPurchases;
             collectionAdditionalData[_collectionID].collectionCirculationSupply = 0;
             collectionAdditionalData[_collectionID].collectionTotalSupply = _collectionTotalSupply;
+            collectionAdditionalData[_collectionID].setFinalSupplyTimeAfterMint = _setFinalSupplyTimeAfterMint;
             collectionAdditionalData[_collectionID].reservedMinTokensIndex = (_collectionID * 10000000000);
             collectionAdditionalData[_collectionID].reservedMaxTokensIndex = (_collectionID * 10000000000) + _collectionTotalSupply - 1;
             wereDataAdded[_collectionID] = true;
         } else if (artistSigned[_collectionID] == false) {
             collectionAdditionalData[_collectionID].collectionArtistAddress = _collectionArtistAddress;
             collectionAdditionalData[_collectionID].maxCollectionPurchases = _maxCollectionPurchases;
+            collectionAdditionalData[_collectionID].setFinalSupplyTimeAfterMint = _setFinalSupplyTimeAfterMint;
         } else {
             collectionAdditionalData[_collectionID].maxCollectionPurchases = _maxCollectionPurchases;
+            collectionAdditionalData[_collectionID].setFinalSupplyTimeAfterMint = _setFinalSupplyTimeAfterMint;
         }
     }
 
@@ -213,8 +217,8 @@ contract NextGenCore is ERC721Enumerable, Ownable {
         collectionAdditionalData[_mintCollectionID].collectionCirculationSupply = collectionAdditionalData[_mintCollectionID].collectionCirculationSupply + 1;
         if (collectionAdditionalData[_mintCollectionID].collectionTotalSupply >= collectionAdditionalData[_mintCollectionID].collectionCirculationSupply) {
             // generate hash
-            tokenToHash[mintIndex] = randomizer.calculateTokenHash(mintIndex, msg.sender, _varg0);
-            tokenData[mintIndex] = string(abi.encodePacked("'burntFrom'",",",_tokenId.toString(),",",tokenData[_tokenId]));
+            tokenToHash[mintIndex] = randomizer.calculateTokenHash(mintIndex, burner, _varg0);
+            tokenData[mintIndex] = tokenData[_tokenId];
             // mint token
             _safeMint(ownerOf(_tokenId), mintIndex);
             tokenIdsToCollectionIds[mintIndex] = _mintCollectionID;
@@ -279,11 +283,12 @@ contract NextGenCore is ERC721Enumerable, Ownable {
 
     // function to add a thumbnail image
 
-    function updateImages(uint256[] memory _tokenId, string[] memory _image) public FunctionAdminRequired(this.updateImages.selector) {
+    function updateImagesAndAttributes(uint256[] memory _tokenId, string[] memory _image, string[] memory _attributes) public FunctionAdminRequired(this.updateImagesAndAttributes.selector) {
         for (uint256 x; x<_tokenId.length; x++) {
             require(collectionFreeze[tokenIdsToCollectionIds[_tokenId[x]]] == false, "Data frozen");
             _requireMinted(_tokenId[x]);
-            tokenImage[_tokenId[x]] = _image[x];
+            tokenImageAndAttri[_tokenId[x]][0] = _image[x];
+            tokenImageAndAttri[_tokenId[x]][1] = _attributes[x];
         }
     }
 
@@ -297,7 +302,7 @@ contract NextGenCore is ERC721Enumerable, Ownable {
     // set final supply
 
     function setFinalSupply(uint256 _collectionID) public FunctionAdminRequired(this.setFinalSupply.selector) {
-        require (block.timestamp > IMinterContract(minterContract).getEndTime(_collectionID) + 30 days, "Time has not passed");
+        require (block.timestamp > IMinterContract(minterContract).getEndTime(_collectionID) + collectionAdditionalData[_collectionID].setFinalSupplyTimeAfterMint, "Time has not passed");
         collectionAdditionalData[_collectionID].collectionTotalSupply = collectionAdditionalData[_collectionID].collectionCirculationSupply;
         collectionAdditionalData[_collectionID].reservedMaxTokensIndex = (_collectionID * 10000000000) + collectionAdditionalData[_collectionID].collectionTotalSupply - 1;
     }
@@ -334,7 +339,7 @@ contract NextGenCore is ERC721Enumerable, Ownable {
         return bytes(baseURI).length > 0 ? string(abi.encodePacked(baseURI, tokenId.toString())) : "";
         } else {
         string memory b64 = Base64.encode(abi.encodePacked("<html><head></head><body><script src=\"",collectionInfo[tokenIdsToCollectionIds[tokenId]].collectionLibrary,"\"></script><script>",retrieveGenerativeScript(tokenId),"</script></body></html>"));
-        string memory _uri = string(abi.encodePacked("data:application/json;utf8,{\"name\":\"",tokenId.toString(),"\",\"description\":\"",collectionInfo[tokenIdsToCollectionIds[tokenId]].collectionDescription,"\",\"image\":\"",tokenImage[tokenId],"\",\"animation_url\":\"data:text/html;base64,",b64,"\"}"));
+        string memory _uri = string(abi.encodePacked("data:application/json;utf8,{\"name\":\"",tokenId.toString(),"\",\"description\":\"",collectionInfo[tokenIdsToCollectionIds[tokenId]].collectionDescription,"\",\"image\":\"",tokenImageAndAttri[tokenId][0],"\",\"attributes\":\"",tokenImageAndAttri[tokenId][1],"\",\"animation_url\":\"data:text/html;base64,",b64,"\"}"));
         return _uri;
         }
     }
@@ -405,8 +410,8 @@ contract NextGenCore is ERC721Enumerable, Ownable {
 
     // function to retrieve the Additional data of a Collection
 
-    function retrieveCollectionAdditionalData(uint256 _collectionID) public view returns(address, uint256, uint256, uint256){
-        return (collectionAdditionalData[_collectionID].collectionArtistAddress, collectionAdditionalData[_collectionID].maxCollectionPurchases, collectionAdditionalData[_collectionID].collectionCirculationSupply, collectionAdditionalData[_collectionID].collectionTotalSupply);
+    function retrieveCollectionAdditionalData(uint256 _collectionID) public view returns(address, uint256, uint256, uint256, uint){
+        return (collectionAdditionalData[_collectionID].collectionArtistAddress, collectionAdditionalData[_collectionID].maxCollectionPurchases, collectionAdditionalData[_collectionID].collectionCirculationSupply, collectionAdditionalData[_collectionID].collectionTotalSupply, collectionAdditionalData[_collectionID].setFinalSupplyTimeAfterMint);
     }
 
     // function to retrieve the Generative Script of a token
