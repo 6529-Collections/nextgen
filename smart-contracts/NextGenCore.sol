@@ -92,7 +92,7 @@ contract NextGenCore is ERC721Enumerable, Ownable {
     mapping (uint256 => string) public tokenData;
 
     // on-chain token Image URI and attributes
-    mapping (uint256 => string[2]) public tokenImageAndAttri;
+    mapping (uint256 => string[2]) public tokenImageAndAttributes;
 
     // collectionFreeze Thumbnail
     mapping (uint256 => bool) private collectionFreeze;
@@ -283,12 +283,12 @@ contract NextGenCore is ERC721Enumerable, Ownable {
 
     // function to add a thumbnail image
 
-    function updateImagesAndAttributes(uint256[] memory _tokenId, string[] memory _image, string[] memory _attributes) public FunctionAdminRequired(this.updateImagesAndAttributes.selector) {
+    function updateImagesAndAttributes(uint256[] memory _tokenId, string[] memory _images, string[] memory _attributes) public FunctionAdminRequired(this.updateImagesAndAttributes.selector) {
         for (uint256 x; x<_tokenId.length; x++) {
             require(collectionFreeze[tokenIdsToCollectionIds[_tokenId[x]]] == false, "Data frozen");
             _requireMinted(_tokenId[x]);
-            tokenImageAndAttri[_tokenId[x]][0] = _image[x];
-            tokenImageAndAttri[_tokenId[x]][1] = _attributes[x];
+            tokenImageAndAttributes[_tokenId[x]][0] = _images[x];
+            tokenImageAndAttributes[_tokenId[x]][1] = _attributes[x];
         }
     }
 
@@ -339,7 +339,7 @@ contract NextGenCore is ERC721Enumerable, Ownable {
         return bytes(baseURI).length > 0 ? string(abi.encodePacked(baseURI, tokenId.toString())) : "";
         } else {
         string memory b64 = Base64.encode(abi.encodePacked("<html><head></head><body><script src=\"",collectionInfo[tokenIdsToCollectionIds[tokenId]].collectionLibrary,"\"></script><script>",retrieveGenerativeScript(tokenId),"</script></body></html>"));
-        string memory _uri = string(abi.encodePacked("data:application/json;utf8,{\"name\":\"",tokenId.toString(),"\",\"description\":\"",collectionInfo[tokenIdsToCollectionIds[tokenId]].collectionDescription,"\",\"image\":\"",tokenImageAndAttri[tokenId][0],"\",\"attributes\":\"",tokenImageAndAttri[tokenId][1],"\",\"animation_url\":\"data:text/html;base64,",b64,"\"}"));
+        string memory _uri = string(abi.encodePacked("data:application/json;utf8,{\"name\":\"",tokenId.toString(),"\",\"description\":\"",collectionInfo[tokenIdsToCollectionIds[tokenId]].collectionDescription,"\",\"image\":\"",tokenImageAndAttributes[tokenId][0],"\",\"attributes\":",tokenImageAndAttributes[tokenId][1],",\"animation_url\":\"data:text/html;base64,",b64,"\"}"));
         return _uri;
         }
     }
@@ -434,7 +434,13 @@ contract NextGenCore is ERC721Enumerable, Ownable {
     // function to retrieve the airdrop/minted tokens per address 
 
     function retrieveTokensPerAddress(uint256 _collectionID, address _address) public view returns(uint256, uint256, uint256) {
-        return (tokensAirdropPerAddress[_collectionID][_address],  tokensMintedAllowlistAddress[_collectionID][_address], tokensMintedPerAddress[_collectionID][_address] );
+        return (tokensAirdropPerAddress[_collectionID][_address],  tokensMintedAllowlistAddress[_collectionID][_address], tokensMintedPerAddress[_collectionID][_address]);
+    }
+
+    // function to retrieve the token image uri and the attributes stored on-chain for a token id.
+
+    function retrievetokenImageAndAttributes(uint256 _tokenId) public view returns(string memory, string memory) {
+        return (tokenImageAndAttributes[_tokenId][0],tokenImageAndAttributes[_tokenId][1]);
     }
 
     // get Selector
