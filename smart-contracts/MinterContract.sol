@@ -311,11 +311,11 @@ contract MinterContract is Ownable{
             phase = 1;
             bytes32 node;
             node = keccak256(abi.encodePacked(_tokenId, tokData));
-            mintingAddress = msg.sender;
+            mintingAddress = ownerOfToken;
             require(MerkleProof.verifyCalldata(merkleProof, collectionPhases[col].merkleRoot, node), 'invalid proof');            
         } else if (block.timestamp >= collectionPhases[col].publicStartTime && block.timestamp <= collectionPhases[col].publicEndTime) {
             phase = 2;
-            mintingAddress = msg.sender;
+            mintingAddress = ownerOfToken;
             tokData = '"public"';
         } else {
             revert("No minting");
