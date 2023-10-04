@@ -3,8 +3,8 @@
 /**
  *
  *  @title: NextGen Minter Contract
- *  @date: 02-October-2023 
- *  @version: 1.4
+ *  @date: 04-October-2023 
+ *  @version: 1.5
  *  @author: 6529 team
  */
 
@@ -465,12 +465,6 @@ contract MinterContract is Ownable{
 
     function retrieveCollectionMintingDetails(uint256 _collectionID) public view returns(uint256, uint256, uint256, uint256, uint8){
         return (collectionPhases[_collectionID].collectionMintCost, collectionPhases[_collectionID].collectionEndMintCost, collectionPhases[_collectionID].rate, collectionPhases[_collectionID].timePeriod, collectionPhases[_collectionID].salesOption);
-    }
-
-    // function retrieve external collection address and burncollection id
-
-    function retrieveKeccakForExtCol(address _erc721Collection, uint256 _burnCollectionID) public view returns (bytes32) {
-        return keccak256(abi.encodePacked(_erc721Collection,_burnCollectionID));
     }
 
     // get minter contract status

@@ -3,8 +3,8 @@
 /**
  *
  *  @title: NextGen Smart Contract
- *  @date: 02-October-2023 
- *  @version: 10.22
+ *  @date: 04-October-2023 
+ *  @version: 10.23
  *  @author: 6529 team
  */
 
@@ -441,12 +441,6 @@ contract NextGenCore is ERC721Enumerable, Ownable {
 
     function retrievetokenImageAndAttributes(uint256 _tokenId) public view returns(string memory, string memory) {
         return (tokenImageAndAttributes[_tokenId][0],tokenImageAndAttributes[_tokenId][1]);
-    }
-
-    // get Selector
-
-    function getSelector(string calldata _func) public pure returns (bytes4) {
-        return bytes4(keccak256(bytes(_func)));
     }
 
 }
