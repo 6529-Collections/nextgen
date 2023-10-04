@@ -17,7 +17,7 @@ import "./MerkleProof.sol";
 import "./INextGenAdmins.sol";
 import "./IERC721.sol";
 
-contract MinterContract is Ownable{
+contract NextGenMinterContract is Ownable{
 
     // total amount collected during minting from collections
     mapping (uint256 => uint256) public collectionTotalAmount;
