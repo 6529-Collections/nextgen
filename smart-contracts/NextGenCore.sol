@@ -62,7 +62,7 @@ contract NextGenCore is ERC721Enumerable, Ownable {
     mapping (uint256 => bool) public isCollectionCreated; 
 
     // checks if data on a collection were added
-    mapping (uint256 => bool) public wereDataAdded;
+    mapping (uint256 => bool) private wereDataAdded;
 
     // maps tokends ids with collectionsids
     mapping (uint256 => uint256) private tokenIdsToCollectionIds;
@@ -339,9 +339,16 @@ contract NextGenCore is ERC721Enumerable, Ownable {
         return bytes(baseURI).length > 0 ? string(abi.encodePacked(baseURI, tokenId.toString())) : "";
         } else {
         string memory b64 = Base64.encode(abi.encodePacked("<html><head></head><body><script src=\"",collectionInfo[tokenIdsToCollectionIds[tokenId]].collectionLibrary,"\"></script><script>",retrieveGenerativeScript(tokenId),"</script></body></html>"));
-        string memory _uri = string(abi.encodePacked("data:application/json;utf8,{\"name\":\"",tokenId.toString(),"\",\"description\":\"",collectionInfo[tokenIdsToCollectionIds[tokenId]].collectionDescription,"\",\"image\":\"",tokenImageAndAttributes[tokenId][0],"\",\"attributes\":",tokenImageAndAttributes[tokenId][1],",\"animation_url\":\"data:text/html;base64,",b64,"\"}"));
+        string memory _uri = string(abi.encodePacked("data:application/json;utf8,{\"name\":\"",getTokenName(tokenId),"\",\"description\":\"",collectionInfo[tokenIdsToCollectionIds[tokenId]].collectionDescription,"\",\"image\":\"",tokenImageAndAttributes[tokenId][0],"\",\"attributes\":[",tokenImageAndAttributes[tokenId][1],"],\"animation_url\":\"data:text/html;base64,",b64,"\"}"));
         return _uri;
         }
+    }
+
+    // function get Name
+
+    function getTokenName(uint256 tokenId) private view returns(string memory)  {
+        uint256 tok = tokenId - collectionAdditionalData[tokenIdsToCollectionIds[tokenId]].reservedMinTokensIndex;
+        return string(abi.encodePacked(collectionInfo[viewColIDforTokenID(tokenId)].collectionName, " #" ,tok.toString()));
     }
 
     // retrieve the collection freeze status
