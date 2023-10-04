@@ -11,7 +11,6 @@
 pragma solidity ^0.8.19;
 
 import "./Ownable.sol";
-import "./IDelegationManagementContract.sol";
 
 contract NextGenAdmins is Ownable{
 
@@ -23,9 +22,6 @@ contract NextGenAdmins is Ownable{
 
     // sets permission on specific function
     mapping (address => mapping (bytes4 => bool)) private functionAdmin;
-
-    // nftdelegation management contract
-    IDelegationManagementContract public dmc;
 
     constructor() {
         adminPermissions[msg.sender] = true;
