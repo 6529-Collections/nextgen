@@ -37,7 +37,7 @@ contract NextGenMinterContract is Ownable{
     // mint tokens on a specific collection after burning a token on an external collection
     mapping (bytes32 => mapping (uint256 => bool)) public burnExternalToMintCollections;
 
-    // sales Option3 timestamp of last mint
+    // check if minting costs were set
     mapping (uint256 => bool) public setMintingCosts;
 
     // collectionPhasesData struct declaration
