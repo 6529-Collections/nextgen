@@ -32,7 +32,7 @@ contract NextGenCore is ERC721Enumerable, Ownable {
         string collectionArtist;
         string collectionDescription;
         string collectionWebsite;
-        string collectionLicense;
+        string collectionLicense; // Suggest this is an enum rather than a string, or at least a bytes32.
         string collectionBaseURI;
         string collectionLibrary;
         string[] collectionScript;
@@ -44,12 +44,12 @@ contract NextGenCore is ERC721Enumerable, Ownable {
     // collectionAdditionalData struct declaration
     struct collectionAdditonalDataStructure {
         address collectionArtistAddress;
-        uint256 maxCollectionPurchases;
-        uint256 collectionCirculationSupply;
-        uint256 collectionTotalSupply;
-        uint256 collectionSalesPercentage;
-        uint256 reservedMinTokensIndex;
-        uint256 reservedMaxTokensIndex;
+        uint256 maxCollectionPurchases; // As with the two items below, this can be packed by using a smaller uint.
+        uint256 collectionCirculationSupply; // This can be a smaller uint, see below.
+        uint256 collectionTotalSupply;  // It seems reasonable that this could be a small uint, unless the collection has more NFTs that atoms in the universe... :)
+        uint256 collectionSalesPercentage; // This is never set, or used, anywhere. It's taking up a full slot in storage for this struct.
+        uint256 reservedMinTokensIndex; // As this var is derived from the index there is no reason to store it. Rather recreate it when required.
+        uint256 reservedMaxTokensIndex; // As above.
         uint setFinalSupplyTimeAfterMint;
     }
 
