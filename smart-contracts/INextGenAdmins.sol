@@ -16,4 +16,7 @@ interface INextGenAdmins {
     // retrieve if the contract is admin contract
     function isAdminContract() external view returns (bool);
 
+    // retrieve owner
+    function owner() external view returns (address);
+
 }

@@ -3,8 +3,8 @@
 /**
  *
  *  @title: NextGen Minter Contract
- *  @date: 04-October-2023 
- *  @version: 1.5
+ *  @date: 06-October-2023 
+ *  @version: 1.6
  *  @author: 6529 team
  */
 
@@ -29,7 +29,7 @@ contract NextGenMinterContract is Ownable{
     mapping (bytes32 => address) public burnOrSwapAddress;
 
     // burn or swap external collection ids
-    mapping (bytes32 => uint256[2]) public burnOrSwapIds;
+    mapping (bytes32 => uint256[2]) private burnOrSwapIds;
 
     // mint tokens on a specific collection after burning a token on a NextGen collection
     mapping (uint256 => mapping (uint256 => bool)) public burnToMintCollections;
@@ -38,7 +38,7 @@ contract NextGenMinterContract is Ownable{
     mapping (bytes32 => mapping (uint256 => bool)) public burnExternalToMintCollections;
 
     // check if minting costs were set
-    mapping (uint256 => bool) public setMintingCosts;
+    mapping (uint256 => bool) private setMintingCosts;
 
     // collectionPhasesData struct declaration
     struct collectionPhasesDataStructure {
@@ -80,7 +80,7 @@ contract NextGenMinterContract is Ownable{
     }
 
     // mapping of collectionPrimaryAndSecondaryAddresses struct
-    mapping (uint256 => collectionPrimaryAddresses) private collectionArtistAddresses;
+    mapping (uint256 => collectionPrimaryAddresses) private collectionArtistPrimaryAddresses;
 
     // royalties secondary splits structure
 
@@ -107,13 +107,23 @@ contract NextGenMinterContract is Ownable{
     // mapping of collectionSecondaryAddresses struct
     mapping (uint256 => collectionSecondaryAddresses) private collectionArtistSecondaryAddresses;
 
+    // mint to auction structure
+    struct mintToAuctionStruct {
+        bool status;
+        uint256 auctionCurrentBid;
+        address auctionCurrentBidder;
+        uint auctionEndTime;
+    }
+
+    // mapping of collectionSecondaryAddresses struct
+    mapping (uint256 => mintToAuctionStruct) public mintToAuctionData;
+
     //external contracts declaration
     INextGenCore public gencore;
     IDelegationManagementContract public dmc;
     INextGenAdmins public adminsContract;
 
-    // other 
-
+    // other declarations
     address public alMintDelegationCol;
 
     // constructor
@@ -240,7 +250,7 @@ contract NextGenMinterContract is Ownable{
             uint tDiff = (block.timestamp - timeOfLastMint) / collectionPhases[col].timePeriod;
             // users are able to mint after a day passes
             require(tDiff>=1 && _numberOfTokens == 1, "1 mint/period");
-            lastMintDate[col] = block.timestamp;
+            lastMintDate[col] = collectionPhases[col].allowlistStartTime + (collectionPhases[col].timePeriod * (gencore.viewCirSupply(col) - 1));
         }
     }
 
@@ -260,6 +270,51 @@ contract NextGenMinterContract is Ownable{
         address burner = msg.sender;
         gencore.burnToMint(mintIndex, _burnCollectionID, _tokenId, _mintCollectionID, _varg0, burner);
         collectionTotalAmount[_mintCollectionID] = collectionTotalAmount[_mintCollectionID] + msg.value;
+    }
+
+    // mint and auction
+    
+    function mintAndAuction(address _recipient, string memory _tokenData, uint256 _varg0, uint256 _collectionID, uint _auctionEndTime) public FunctionAdminRequired(this.mintAndAuction.selector) {
+        require(gencore.retrievewereDataAdded(_collectionID) == true, "Add data");
+        uint256 collectionTokenMintIndex;
+        collectionTokenMintIndex = gencore.viewTokensIndexMin(_collectionID) + gencore.viewCirSupply(_collectionID);
+        require(collectionTokenMintIndex <= gencore.viewTokensIndexMax(_collectionID), "No supply");
+        uint256 mintIndex = gencore.viewTokensIndexMin(_collectionID) + gencore.viewCirSupply(_collectionID);
+        gencore.airDropTokens(mintIndex, _recipient, _tokenData, _varg0, _collectionID);
+        uint timeOfLastMint;
+        // check 1 per period
+        if (lastMintDate[_collectionID] == 0) {
+        // for public sale set the allowlist the same time as publicsale
+            timeOfLastMint = collectionPhases[_collectionID].allowlistStartTime - collectionPhases[_collectionID].timePeriod;
+        } else {
+            timeOfLastMint =  lastMintDate[_collectionID];
+        }
+        // uint calculates if period has passed in order to allow minting
+        uint tDiff = (block.timestamp - timeOfLastMint) / collectionPhases[_collectionID].timePeriod;
+        // users are able to mint after a day passes
+        require(tDiff>=1, "1 mint/period");
+        lastMintDate[_collectionID] = collectionPhases[_collectionID].allowlistStartTime + (collectionPhases[_collectionID].timePeriod * (gencore.viewCirSupply(_collectionID) - 1));
+        mintToAuctionData[mintIndex].status = true;
+        mintToAuctionData[mintIndex].auctionEndTime = _auctionEndTime;
+    }
+
+    // participate to auction
+
+    function participateToAuction(uint256 _tokenid) public payable {
+        require(msg.value > mintToAuctionData[_tokenid].auctionCurrentBid && block.timestamp <= mintToAuctionData[_tokenid].auctionEndTime && mintToAuctionData[_tokenid].status == true);
+        payable(mintToAuctionData[_tokenid].auctionCurrentBidder).transfer(mintToAuctionData[_tokenid].auctionCurrentBid);
+        mintToAuctionData[_tokenid].auctionCurrentBidder = msg.sender;
+        mintToAuctionData[_tokenid].auctionCurrentBid = msg.value;
+    }
+
+    // claim Token After Auction
+
+    function claimAuction(address _erc721Collection, uint256 _tokenId) public {
+        require(block.timestamp >= mintToAuctionData[_tokenId].auctionEndTime);
+        address ownerOfToken = IERC721(_erc721Collection).ownerOf(_tokenId);
+        IERC721(_erc721Collection).safeTransferFrom(ownerOfToken, mintToAuctionData[_tokenId].auctionCurrentBidder, _tokenId);
+        payable(adminsContract.owner()).transfer(mintToAuctionData[_tokenId].auctionCurrentBid);
+        mintToAuctionData[_tokenId].auctionCurrentBid = 0;
     }
 
     // function to update allowlist mint delegation collection
@@ -331,38 +386,33 @@ contract NextGenMinterContract is Ownable{
 
     // function to set primary splits
 
-    function setPrimarySplits(uint256 _collectionID, uint256 _artistSplit, uint256 _teamSplit) public FunctionAdminRequired(this.setPrimarySplits.selector) {
-        require(_artistSplit + _teamSplit == 100, "splits need to be 100%");
-        collectionRoyaltiesPrimarySplits[_collectionID].artistPercentage = _artistSplit;
-        collectionRoyaltiesPrimarySplits[_collectionID].teamPercentage = _teamSplit;
-    }
-
-    // function to set secondary splits
-
-    function setSecondarySplits(uint256 _collectionID, uint256 _artistSplit, uint256 _teamSplit) public FunctionAdminRequired(this.setSecondarySplits.selector) {
-        require(_artistSplit + _teamSplit == 100, "splits need to be 100%");
-        collectionRoyaltiesSecondarySplits[_collectionID].artistPercentage = _artistSplit;
-        collectionRoyaltiesSecondarySplits[_collectionID].teamPercentage = _teamSplit;
+    function setPrimaryAndSecondarySplits(uint256 _collectionID, uint256 _artistPrSplit, uint256 _teamPrSplit, uint256 _artistSecSplit, uint256 _teamSecSplit) public FunctionAdminRequired(this.setPrimaryAndSecondarySplits.selector) {
+        require(_artistPrSplit + _teamPrSplit == 100, "splits need to be 100%");
+        require(_artistSecSplit + _teamSecSplit == 100, "splits need to be 100%");
+        collectionRoyaltiesPrimarySplits[_collectionID].artistPercentage = _artistPrSplit;
+        collectionRoyaltiesPrimarySplits[_collectionID].teamPercentage = _teamPrSplit;
+        collectionRoyaltiesSecondarySplits[_collectionID].artistPercentage = _artistSecSplit;
+        collectionRoyaltiesSecondarySplits[_collectionID].teamPercentage = _teamSecSplit;
     }
 
     // function to propose primary addresses and percentages for each address
 
     function proposePrimaryAddressesAndPercentages(uint256 _collectionID, address _primaryAdd1, address _primaryAdd2, address _primaryAdd3, uint256 _add1Percentage, uint256 _add2Percentage, uint256 _add3Percentage) public ArtistOrAdminRequired(_collectionID, this.proposePrimaryAddressesAndPercentages.selector) {
-        require (collectionArtistAddresses[_collectionID].status == false, "Already approved");
+        require (collectionArtistPrimaryAddresses[_collectionID].status == false, "Already approved");
         require (_add1Percentage + _add2Percentage + _add3Percentage <= collectionRoyaltiesPrimarySplits[_collectionID].artistPercentage, "Check %");
-        collectionArtistAddresses[_collectionID].primaryAdd1 = _primaryAdd1;
-        collectionArtistAddresses[_collectionID].primaryAdd2 = _primaryAdd2;
-        collectionArtistAddresses[_collectionID].primaryAdd3 = _primaryAdd3;
-        collectionArtistAddresses[_collectionID].add1Percentage = _add1Percentage;
-        collectionArtistAddresses[_collectionID].add2Percentage = _add2Percentage;
-        collectionArtistAddresses[_collectionID].add3Percentage = _add3Percentage;
-        collectionArtistAddresses[_collectionID].status = false;
+        collectionArtistPrimaryAddresses[_collectionID].primaryAdd1 = _primaryAdd1;
+        collectionArtistPrimaryAddresses[_collectionID].primaryAdd2 = _primaryAdd2;
+        collectionArtistPrimaryAddresses[_collectionID].primaryAdd3 = _primaryAdd3;
+        collectionArtistPrimaryAddresses[_collectionID].add1Percentage = _add1Percentage;
+        collectionArtistPrimaryAddresses[_collectionID].add2Percentage = _add2Percentage;
+        collectionArtistPrimaryAddresses[_collectionID].add3Percentage = _add3Percentage;
+        collectionArtistPrimaryAddresses[_collectionID].status = false;
     }
 
     // function to propose secondary addresses and percentages for each address
 
     function proposeSecondaryAddressesAndPercentages(uint256 _collectionID, address _secondaryAdd1, address _secondaryAdd2, address _secondaryAdd3, uint256 _add1Percentage, uint256 _add2Percentage, uint256 _add3Percentage) public ArtistOrAdminRequired(_collectionID, this.proposeSecondaryAddressesAndPercentages.selector) {
-        require (collectionArtistAddresses[_collectionID].status == false, "Already approved");
+        require (collectionArtistSecondaryAddresses[_collectionID].status == false, "Already approved");
         require (_add1Percentage + _add2Percentage + _add3Percentage <= collectionRoyaltiesSecondarySplits[_collectionID].artistPercentage, "Check %");
         collectionArtistSecondaryAddresses[_collectionID].secondaryAdd1 = _secondaryAdd1;
         collectionArtistSecondaryAddresses[_collectionID].secondaryAdd2 = _secondaryAdd2;
@@ -375,40 +425,34 @@ contract NextGenMinterContract is Ownable{
 
     // function to accept primary addresses and percentages
 
-    function acceptPrimaryAddressesAndPercentages(uint256 _collectionID, bool _status) public FunctionAdminRequired(this.acceptPrimaryAddressesAndPercentages.selector) {
-        collectionArtistAddresses[_collectionID].status = _status;
-    }
-
-    // function to accept secondary addresses and percentages
-
-    function acceptSecondaryAddressesAndPercentages(uint256 _collectionID, bool _status) public FunctionAdminRequired(this.acceptSecondaryAddressesAndPercentages.selector) {
-        collectionArtistSecondaryAddresses[_collectionID].status = _status;
+    function acceptAddressesAndPercentages(uint256 _collectionID, bool _statusPrimary, bool _statusSecondary) public FunctionAdminRequired(this.acceptAddressesAndPercentages.selector) {
+        collectionArtistPrimaryAddresses[_collectionID].status = _statusPrimary;
+        collectionArtistSecondaryAddresses[_collectionID].status = _statusSecondary;
     }
 
     // function to pay the artist
 
     function payArtist(uint256 _collectionID, address _team1, address _team2, uint256 _teamperc1, uint256 _teamperc2) public FunctionAdminRequired(this.payArtist.selector) {
-        require(collectionArtistAddresses[_collectionID].status == true, "Accept Royalties");
+        require(collectionArtistPrimaryAddresses[_collectionID].status == true, "Accept Royalties");
         require(collectionTotalAmount[_collectionID] > 0, "Collection Balance must be grater than 0");
         require(collectionRoyaltiesPrimarySplits[_collectionID].artistPercentage + _teamperc1 + _teamperc2 == 100, "Change percentages");
-        uint256 royalties;
+        uint256 royalties = collectionTotalAmount[_collectionID];
+        collectionTotalAmount[_collectionID] = 0;
         uint256 artistRoyalties1;
         uint256 artistRoyalties2;
         uint256 artistRoyalties3;
         uint256 teamRoyalties1;
         uint256 teamRoyalties2;
-        royalties = collectionTotalAmount[_collectionID];
-        artistRoyalties1 = royalties * collectionArtistAddresses[_collectionID].add1Percentage / 100;
-        artistRoyalties2 = royalties * collectionArtistAddresses[_collectionID].add2Percentage / 100;
-        artistRoyalties3 = royalties * collectionArtistAddresses[_collectionID].add3Percentage / 100;
+        artistRoyalties1 = royalties * collectionArtistPrimaryAddresses[_collectionID].add1Percentage / 100;
+        artistRoyalties2 = royalties * collectionArtistPrimaryAddresses[_collectionID].add2Percentage / 100;
+        artistRoyalties3 = royalties * collectionArtistPrimaryAddresses[_collectionID].add3Percentage / 100;
         teamRoyalties1 = royalties * _teamperc1 / 100;
         teamRoyalties2 = royalties * _teamperc2 / 100;
-        payable(collectionArtistAddresses[_collectionID].primaryAdd1).transfer(artistRoyalties1);
-        payable(collectionArtistAddresses[_collectionID].primaryAdd2).transfer(artistRoyalties2);
-        payable(collectionArtistAddresses[_collectionID].primaryAdd3).transfer(artistRoyalties3);
+        payable(collectionArtistPrimaryAddresses[_collectionID].primaryAdd1).transfer(artistRoyalties1);
+        payable(collectionArtistPrimaryAddresses[_collectionID].primaryAdd2).transfer(artistRoyalties2);
+        payable(collectionArtistPrimaryAddresses[_collectionID].primaryAdd3).transfer(artistRoyalties3);
         payable(_team1).transfer(teamRoyalties1);
         payable(_team2).transfer(teamRoyalties2);
-        collectionTotalAmount[_collectionID] = 0;
     }
 
     // function to update core contract
@@ -440,7 +484,7 @@ contract NextGenMinterContract is Ownable{
     // function to retrieve primary addresses and percentages
 
     function retrievePrimaryAddressesAndPercentages(uint256 _collectionID) public view returns(address, address, address, uint256, uint256, uint256, bool){
-        return (collectionArtistAddresses[_collectionID].primaryAdd1, collectionArtistAddresses[_collectionID].primaryAdd2, collectionArtistAddresses[_collectionID].primaryAdd3, collectionArtistAddresses[_collectionID].add1Percentage, collectionArtistAddresses[_collectionID].add2Percentage, collectionArtistAddresses[_collectionID].add3Percentage, collectionArtistAddresses[_collectionID].status);
+        return (collectionArtistPrimaryAddresses[_collectionID].primaryAdd1, collectionArtistPrimaryAddresses[_collectionID].primaryAdd2, collectionArtistPrimaryAddresses[_collectionID].primaryAdd3, collectionArtistPrimaryAddresses[_collectionID].add1Percentage, collectionArtistPrimaryAddresses[_collectionID].add2Percentage, collectionArtistPrimaryAddresses[_collectionID].add3Percentage, collectionArtistPrimaryAddresses[_collectionID].status);
     }
 
     // function to retrieve secondary splits between artist and team

@@ -3,8 +3,8 @@
 /**
  *
  *  @title: NextGen Smart Contract
- *  @date: 04-October-2023 
- *  @version: 10.23
+ *  @date: 06-October-2023 
+ *  @version: 10.24
  *  @author: 6529 team
  */
 
