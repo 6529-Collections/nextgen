@@ -44,12 +44,12 @@ contract NextGenCore is ERC721Enumerable, Ownable {
     // collectionAdditionalData struct declaration
     struct collectionAdditonalDataStructure {
         address collectionArtistAddress;
-        uint256 maxCollectionPurchases; 
-        uint256 collectionCirculationSupply; 
-        uint256 collectionTotalSupply;  
-        uint256 collectionSalesPercentage; 
-        uint256 reservedMinTokensIndex; 
-        uint256 reservedMaxTokensIndex; 
+        uint256 maxCollectionPurchases;
+        uint256 collectionCirculationSupply;
+        uint256 collectionTotalSupply;
+        uint256 collectionSalesPercentage;
+        uint256 reservedMinTokensIndex;
+        uint256 reservedMaxTokensIndex;
         uint setFinalSupplyTimeAfterMint;
     }
 
