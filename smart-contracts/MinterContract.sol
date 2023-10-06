@@ -397,18 +397,18 @@ contract NextGenMinterContract is Ownable{
         uint256 artistRoyalties3;
         uint256 teamRoyalties1;
         uint256 teamRoyalties2;
-        royalties = collectionTotalAmount[_collectionID]; // reading the same storage var twice
+        royalties = collectionTotalAmount[_collectionID];
         artistRoyalties1 = royalties * collectionArtistAddresses[_collectionID].add1Percentage / 100;
         artistRoyalties2 = royalties * collectionArtistAddresses[_collectionID].add2Percentage / 100;
         artistRoyalties3 = royalties * collectionArtistAddresses[_collectionID].add3Percentage / 100;
         teamRoyalties1 = royalties * _teamperc1 / 100;
         teamRoyalties2 = royalties * _teamperc2 / 100;
-        payable(collectionArtistAddresses[_collectionID].primaryAdd1).transfer(artistRoyalties1); // transfer isn't considered safe for the long-term
+        payable(collectionArtistAddresses[_collectionID].primaryAdd1).transfer(artistRoyalties1);
         payable(collectionArtistAddresses[_collectionID].primaryAdd2).transfer(artistRoyalties2);
         payable(collectionArtistAddresses[_collectionID].primaryAdd3).transfer(artistRoyalties3);
         payable(_team1).transfer(teamRoyalties1);
         payable(_team2).transfer(teamRoyalties2);
-        collectionTotalAmount[_collectionID] = 0; // <= reentrant here
+        collectionTotalAmount[_collectionID] = 0;
     }
 
     // function to update core contract
