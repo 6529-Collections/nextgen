@@ -47,7 +47,6 @@ contract NextGenCore is ERC721Enumerable, Ownable {
         uint256 maxCollectionPurchases;
         uint256 collectionCirculationSupply;
         uint256 collectionTotalSupply;
-        uint256 collectionSalesPercentage;
         uint256 reservedMinTokensIndex;
         uint256 reservedMaxTokensIndex;
         uint setFinalSupplyTimeAfterMint;
