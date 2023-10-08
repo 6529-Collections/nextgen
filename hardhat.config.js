@@ -2,6 +2,9 @@ require("@nomicfoundation/hardhat-toolbox")
 require("hardhat-gas-reporter")
 
 module.exports = {
+  paths: {
+    sources: "./smart-contracts",
+  },
   solidity: {
     compilers: [
       {
