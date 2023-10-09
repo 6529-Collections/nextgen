@@ -10,7 +10,7 @@
 
 pragma solidity ^0.8.19;
 
-import "./ERC721Enumerable.sol";
+import "./ERC721.sol";
 import "./Ownable.sol";
 import "./SafeMath.sol";
 import "./Strings.sol";
@@ -18,8 +18,9 @@ import "./Base64.sol";
 import "./IRandomizer.sol";
 import "./INextGenAdmins.sol";
 import "./IMinterContract.sol";
+import {ArrngConsumer} from "@arrng/contracts/ArrngConsumer.sol";
 
-contract NextGenCore is ERC721Enumerable, Ownable {
+contract NextGenCore is ERC721, Ownable, ArrngConsumer {
     using SafeMath for uint256;
     using Strings for uint256;
 
@@ -100,13 +101,16 @@ contract NextGenCore is ERC721Enumerable, Ownable {
     // artist signed
     mapping (uint256 => bool) public artistSigned; 
 
+    /// @dev Map an arrng request to a token index
+    mapping (uint256 => uint256) private _arrngRequestToMintIndex;
+
     // external contracts declaration
     IRandomizer public randomizer;
     INextGenAdmins public adminsContract;
     address public minterContract;
 
     // smart contract constructor
-    constructor(string memory name, string memory symbol, address _randomizer, address _adminsContract) ERC721(name, symbol) {
+    constructor(string memory name, string memory symbol, address _randomizer, address _adminsContract) ERC721(name, symbol) ArrngConsumer(0x000000000000f968845afB0B8Cf134Ec196D38D4) {
         adminsContract = INextGenAdmins(_adminsContract);
         randomizer = IRandomizer(_randomizer);
         newCollectionIndex = newCollectionIndex + 1;
@@ -168,36 +172,50 @@ contract NextGenCore is ERC721Enumerable, Ownable {
 
     // airdrop called from minterContract
     
-    function airDropTokens(uint256 mintIndex, address _recipient, string memory _tokenData, uint256 _varg0, uint256 _collectionID) external {
+    function airDropTokens(uint256 mintIndex, address _recipient, string memory _tokenData, uint256 _varg0, uint256 _collectionID) external payable {
         require(msg.sender == minterContract, "Caller is not the Minter Contract");
         collectionAdditionalData[_collectionID].collectionCirculationSupply = collectionAdditionalData[_collectionID].collectionCirculationSupply + 1;
         if (collectionAdditionalData[_collectionID].collectionTotalSupply >= collectionAdditionalData[_collectionID].collectionCirculationSupply) {
-            tokenToHash[mintIndex] = randomizer.calculateTokenHash(mintIndex, _recipient, _varg0);
-            tokenData[mintIndex] = _tokenData;
-            // mint token
-            _safeMint(_recipient, mintIndex);
-            tokenIdsToCollectionIds[mintIndex] = _collectionID;
+            _mintProcessing(mintIndex, _recipient, _tokenData, _collectionID);
             tokensAirdropPerAddress[_collectionID][_recipient] = tokensAirdropPerAddress[_collectionID][_recipient] + 1;
         }
     }
 
+    function fulfillRandomWords(
+      uint256 id, uint256[] memory numbers
+    ) internal override {
+      tokenToHash[_arrngRequestToMintIndex[id]] = bytes32(numbers[0]);
+    }
+
     // mint called from minterContract
 
-    function mint(uint256 mintIndex, address _mintingAddress , address _mintTo, string memory _tokenData, uint256 _varg0, uint256 _collectionID, uint256 phase) external {
+    function mint(uint256 mintIndex, address _mintingAddress , address _mintTo, string memory _tokenData, uint256 _varg0, uint256 _collectionID, uint256 phase) external payable {
         require(msg.sender == minterContract, "Caller is not the Minter Contract");
         collectionAdditionalData[_collectionID].collectionCirculationSupply = collectionAdditionalData[_collectionID].collectionCirculationSupply + 1;
         if (collectionAdditionalData[_collectionID].collectionTotalSupply >= collectionAdditionalData[_collectionID].collectionCirculationSupply) {
-            tokenToHash[mintIndex] = randomizer.calculateTokenHash(mintIndex, _mintingAddress, _varg0);
-            tokenData[mintIndex] = _tokenData;
-            // mint token
-            _safeMint(_mintTo, mintIndex);
-            tokenIdsToCollectionIds[mintIndex] = _collectionID;
+            _mintProcessing(mintIndex, _mintTo, _tokenData, _collectionID);
             if (phase == 1) {
                 tokensMintedAllowlistAddress[_collectionID][_mintingAddress] = tokensMintedAllowlistAddress[_collectionID][_mintingAddress] + 1;
             } else {
                 tokensMintedPerAddress[_collectionID][_mintingAddress] = tokensMintedPerAddress[_collectionID][_mintingAddress] + 1;
             }
         }
+    }
+
+    /// @dev centralize duplicated code in mint(), airDropTokens() and burnToMint() in a single internal
+    /// function for reuse and increased maintainability.
+    /// Implement callback based oracle rng.
+    function _mintProcessing(uint256 _mintIndex, address _recipient, string memory _tokenData, uint256 _collectionID) internal{
+        tokenData[_mintIndex] = _tokenData;
+        /// @dev Request RNG. Note that minting of the tokens occurs here just as before, but we 
+        /// set the hash value in the callback. Some consideration might need to be made to the 
+        /// appearance of tokens in marketplaces during the six or so blocks it will take arrng
+        /// to respond (e.g. a holding image / set of traits).
+        /// the callback to this function:
+        _arrngRequestToMintIndex[arrngController.requestRandomWords {value: msg.value} (1)] = _mintIndex;
+        // mint token
+        _safeMint(_recipient, _mintIndex);
+        tokenIdsToCollectionIds[_mintIndex] = _collectionID;
     }
 
     // burn function
@@ -211,17 +229,12 @@ contract NextGenCore is ERC721Enumerable, Ownable {
 
     // burn to mint called from minterContract
 
-    function burnToMint(uint256 mintIndex, uint256 _burnCollectionID, uint256 _tokenId, uint256 _mintCollectionID, uint256 _varg0, address burner) external {
+    function burnToMint(uint256 mintIndex, uint256 _burnCollectionID, uint256 _tokenId, uint256 _mintCollectionID, uint256 _varg0, address burner) external payable {
         require(msg.sender == minterContract, "Caller is not the Minter Contract");
         require(_isApprovedOrOwner(burner, _tokenId), "ERC721: caller is not token owner or approved");
         collectionAdditionalData[_mintCollectionID].collectionCirculationSupply = collectionAdditionalData[_mintCollectionID].collectionCirculationSupply + 1;
         if (collectionAdditionalData[_mintCollectionID].collectionTotalSupply >= collectionAdditionalData[_mintCollectionID].collectionCirculationSupply) {
-            // generate hash
-            tokenToHash[mintIndex] = randomizer.calculateTokenHash(mintIndex, burner, _varg0);
-            tokenData[mintIndex] = tokenData[_tokenId];
-            // mint token
-            _safeMint(ownerOf(_tokenId), mintIndex);
-            tokenIdsToCollectionIds[mintIndex] = _mintCollectionID;
+            _mintProcessing(mintIndex, ownerOf(_tokenId), tokenData[_tokenId], _mintCollectionID);
             // burn token
             _burn(_tokenId);
             burnAmount[_burnCollectionID] = burnAmount[_burnCollectionID] + 1;
