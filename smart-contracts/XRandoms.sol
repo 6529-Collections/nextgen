@@ -46,7 +46,7 @@ function returnIndex(uint256 id) public view returns (string memory) {
     return getWord(id);
 }
 
-function checkDistribution() public returns (){
+function checkDistribution() public {
     for (uint256 i=0; i<20; i ++) {
         uint256 randomNum = uint(keccak256(abi.encodePacked(block.prevrandao,gasleft(),msg.sender,blockhash(block.number - 1),block.timestamp))) % 10;
         if (keccak256(abi.encodePacked(getWord(randomNum))) == keccak256(abi.encodePacked("Acai"))) {
