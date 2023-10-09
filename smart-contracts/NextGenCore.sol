@@ -12,7 +12,6 @@ pragma solidity ^0.8.19;
 
 import "./ERC721Enumerable.sol";
 import "./Ownable.sol";
-import "./SafeMath.sol";
 import "./Strings.sol";
 import "./Base64.sol";
 import "./IRandomizer.sol";
@@ -20,7 +19,6 @@ import "./INextGenAdmins.sol";
 import "./IMinterContract.sol";
 
 contract NextGenCore is ERC721Enumerable, Ownable {
-    using SafeMath for uint256;
     using Strings for uint256;
 
     // declare variables
@@ -42,27 +40,20 @@ contract NextGenCore is ERC721Enumerable, Ownable {
     mapping (uint256 => collectionInfoStructure) private collectionInfo;
 
     // collectionAdditionalData struct declaration
+    /// @dev pack integer values into fewer slots and remove derived values from storage.
+    /// This struct is now 2 slots rather than 7.
     struct collectionAdditonalDataStructure {
         address collectionArtistAddress;
-        uint256 maxCollectionPurchases; // As with the two items below, this can be packed by using a smaller uint.
-        uint256 collectionCirculationSupply; // This can be a smaller uint, see below.
-        uint256 collectionTotalSupply;  // It seems reasonable that this could be a small uint, unless the collection has more NFTs that atoms in the universe... :)
-        uint256 collectionSalesPercentage; // This is never set, or used, anywhere. It's taking up a full slot in storage for this struct.
-        uint256 reservedMinTokensIndex; // As this var is derived from the index there is no reason to store it. Rather recreate it when required.
-        uint256 reservedMaxTokensIndex; // As above.
-        uint setFinalSupplyTimeAfterMint;
+        uint80 maxCollectionPurchases; 
+        uint80 collectionCirculationSupply;
+        uint80 collectionTotalSupply; 
+        uint80 setFinalSupplyTimeAfterMint;
     }
 
     // mapping of collectionAdditionalData struct
     mapping (uint256 => collectionAdditonalDataStructure) private collectionAdditionalData;
 
     // other mappings
-
-    // checks if a collection was created
-    mapping (uint256 => bool) public isCollectionCreated; 
-
-    // checks if data on a collection were added
-    mapping (uint256 => bool) private wereDataAdded;
 
     // maps tokends ids with collectionsids
     mapping (uint256 => uint256) private tokenIdsToCollectionIds;
@@ -129,15 +120,8 @@ contract NextGenCore is ERC721Enumerable, Ownable {
     // function to create a Collection
 
     function createCollection(string memory _collectionName, string memory _collectionArtist, string memory _collectionDescription, string memory _collectionWebsite, string memory _collectionLicense, string memory _collectionBaseURI, string memory _collectionLibrary, string[] memory _collectionScript) public FunctionAdminRequired(this.createCollection.selector) {
-        collectionInfo[newCollectionIndex].collectionName = _collectionName;
-        collectionInfo[newCollectionIndex].collectionArtist = _collectionArtist;
-        collectionInfo[newCollectionIndex].collectionDescription = _collectionDescription;
-        collectionInfo[newCollectionIndex].collectionWebsite = _collectionWebsite;
-        collectionInfo[newCollectionIndex].collectionLicense = _collectionLicense;
+        _storeCollectionInfo(newCollectionIndex, _collectionName, _collectionArtist, _collectionDescription, _collectionWebsite, _collectionLicense, _collectionLibrary, _collectionScript);
         collectionInfo[newCollectionIndex].collectionBaseURI = _collectionBaseURI;
-        collectionInfo[newCollectionIndex].collectionLibrary = _collectionLibrary;
-        collectionInfo[newCollectionIndex].collectionScript = _collectionScript;
-        isCollectionCreated[newCollectionIndex] = true;
         newCollectionIndex = newCollectionIndex + 1;
     }
 
@@ -146,24 +130,22 @@ contract NextGenCore is ERC721Enumerable, Ownable {
     // only _collectionArtistAddress , _maxCollectionPurchases can change after total supply is set
 
     function setCollectionData(uint256 _collectionID, address _collectionArtistAddress, uint256 _maxCollectionPurchases, uint256 _collectionTotalSupply, uint _setFinalSupplyTimeAfterMint) public CollectionAdminRequired(_collectionID, this.setCollectionData.selector) {
-        require((isCollectionCreated[_collectionID] == true) && (collectionFreeze[_collectionID] == false) && (_collectionTotalSupply <= 10000000000), "wrong/freezed");
+        require(_collectionExists(_collectionID) && !collectionFreeze[_collectionID] && (_collectionTotalSupply <= 10000000000), "wrong/freezed");
+        
+        collectionAdditionalData[_collectionID].maxCollectionPurchases = uint80(_maxCollectionPurchases);
+        collectionAdditionalData[_collectionID].setFinalSupplyTimeAfterMint = uint80(_setFinalSupplyTimeAfterMint);
+
+        if (artistSigned[_collectionID] == false) {
+          collectionAdditionalData[_collectionID].collectionArtistAddress = _collectionArtistAddress;
+        }
+
         if (collectionAdditionalData[_collectionID].collectionTotalSupply == 0) {
             collectionAdditionalData[_collectionID].collectionArtistAddress = _collectionArtistAddress;
-            collectionAdditionalData[_collectionID].maxCollectionPurchases = _maxCollectionPurchases;
+            collectionAdditionalData[_collectionID].maxCollectionPurchases = uint80(_maxCollectionPurchases);
             collectionAdditionalData[_collectionID].collectionCirculationSupply = 0;
-            collectionAdditionalData[_collectionID].collectionTotalSupply = _collectionTotalSupply;
-            collectionAdditionalData[_collectionID].setFinalSupplyTimeAfterMint = _setFinalSupplyTimeAfterMint;
-            collectionAdditionalData[_collectionID].reservedMinTokensIndex = (_collectionID * 10000000000);
-            collectionAdditionalData[_collectionID].reservedMaxTokensIndex = (_collectionID * 10000000000) + _collectionTotalSupply - 1;
-            wereDataAdded[_collectionID] = true;
-        } else if (artistSigned[_collectionID] == false) {
-            collectionAdditionalData[_collectionID].collectionArtistAddress = _collectionArtistAddress;
-            collectionAdditionalData[_collectionID].maxCollectionPurchases = _maxCollectionPurchases;
-            collectionAdditionalData[_collectionID].setFinalSupplyTimeAfterMint = _setFinalSupplyTimeAfterMint;
-        } else {
-            collectionAdditionalData[_collectionID].maxCollectionPurchases = _maxCollectionPurchases;
-            collectionAdditionalData[_collectionID].setFinalSupplyTimeAfterMint = _setFinalSupplyTimeAfterMint;
-        }
+            collectionAdditionalData[_collectionID].collectionTotalSupply = uint80(_collectionTotalSupply);
+            collectionAdditionalData[_collectionID].setFinalSupplyTimeAfterMint = uint80(_setFinalSupplyTimeAfterMint);
+        } 
     }
 
     // airdrop called from minterContract
@@ -204,7 +186,7 @@ contract NextGenCore is ERC721Enumerable, Ownable {
 
     function burn(uint256 _collectionID, uint256 _tokenId) public {
         require(_isApprovedOrOwner(_msgSender(), _tokenId), "ERC721: caller is not token owner or approved");
-        require ((_tokenId >= collectionAdditionalData[_collectionID].reservedMinTokensIndex) && (_tokenId <= collectionAdditionalData[_collectionID].reservedMaxTokensIndex), "id err");
+        require ((_tokenId >= _reservedMinTokensIndex(_collectionID)) && (_tokenId <= _reservedMaxTokensIndex(_collectionID)), "id err");
         _burn(_tokenId);
         burnAmount[_collectionID] = burnAmount[_collectionID] + 1;
     }
@@ -227,13 +209,19 @@ contract NextGenCore is ERC721Enumerable, Ownable {
             burnAmount[_burnCollectionID] = burnAmount[_burnCollectionID] + 1;
         }
     }
-
+  
     // Additional setter functions
 
     // function to update Collection Info
 
     function updateCollectionInfo(uint256 _collectionID, string memory _newCollectionName, string memory _newCollectionArtist, string memory _newCollectionDescription, string memory _newCollectionWebsite, string memory _newCollectionLicense, string memory _newCollectionLibrary, string[] memory _newCollectionScript) public CollectionAdminRequired(_collectionID, this.updateCollectionInfo.selector) {
-        require((isCollectionCreated[_collectionID] == true) && (collectionFreeze[_collectionID] == false), "Not allowed");
+        require(_collectionExists(_collectionID) && !collectionFreeze[_collectionID], "Not allowed");
+        _storeCollectionInfo(_collectionID, _newCollectionName, _newCollectionArtist, _newCollectionDescription, _newCollectionWebsite, _newCollectionLicense, _newCollectionLibrary, _newCollectionScript);
+    }
+
+    /// @dev centralize shared storage writes. There are two locations where these values are writted to storage, we can centralise
+    /// these into one internal function (generally a good idea for all code that can be shared).
+    function _storeCollectionInfo(uint256 _collectionID, string memory _newCollectionName, string memory _newCollectionArtist, string memory _newCollectionDescription, string memory _newCollectionWebsite, string memory _newCollectionLicense, string memory _newCollectionLibrary, string[] memory _newCollectionScript) internal {
         collectionInfo[_collectionID].collectionName = _newCollectionName;
         collectionInfo[_collectionID].collectionArtist = _newCollectionArtist;
         collectionInfo[_collectionID].collectionDescription = _newCollectionDescription;
@@ -246,7 +234,7 @@ contract NextGenCore is ERC721Enumerable, Ownable {
     // function to update Collection Script By Index
 
     function updateCollectionScriptByIndex(uint256 _collectionID, uint256 _index, string memory _newCollectionIndexScript) public CollectionAdminRequired(_collectionID, this.updateCollectionScriptByIndex.selector) {
-        require((isCollectionCreated[_collectionID] == true) && (collectionFreeze[_collectionID] == false), "Not allowed");
+        require(_collectionExists(_collectionID) && !collectionFreeze[_collectionID], "Not allowed");
         collectionInfo[_collectionID].collectionScript[_index] = _newCollectionIndexScript;
     }
 
@@ -262,7 +250,7 @@ contract NextGenCore is ERC721Enumerable, Ownable {
     // function change metadata view 
 
     function changeMetadataView(uint256 _collectionID, bool _status) public CollectionAdminRequired(_collectionID, this.changeMetadataView.selector) { 
-        require((isCollectionCreated[_collectionID] == true) && (collectionFreeze[_collectionID] == false), "Not allowed");
+        require(_collectionExists(_collectionID) && !collectionFreeze[_collectionID], "Not allowed");
         onchainMetadata[_collectionID] = _status;
     }
 
@@ -277,7 +265,7 @@ contract NextGenCore is ERC721Enumerable, Ownable {
     // function to update the baseuri
 
     function updateBaseURI(uint256 _collectionID, string memory _newCollectionBaseURI) public CollectionAdminRequired(_collectionID, this.updateBaseURI.selector) {
-        require((isCollectionCreated[_collectionID] == true) && (collectionFreeze[_collectionID] == false), "Not allowed");
+        require(_collectionExists(_collectionID) && !collectionFreeze[_collectionID], "Not allowed");
         collectionInfo[_collectionID].collectionBaseURI = _newCollectionBaseURI;
     }
 
@@ -295,7 +283,7 @@ contract NextGenCore is ERC721Enumerable, Ownable {
     // freeze collection
 
     function freezeCollection(uint256 _collectionID) public FunctionAdminRequired(this.freezeCollection.selector) {
-        require(isCollectionCreated[_collectionID] == true, "No Col");
+        require(_collectionExists(_collectionID), "No Col");
         collectionFreeze[_collectionID] = true;
     }
 
@@ -304,7 +292,6 @@ contract NextGenCore is ERC721Enumerable, Ownable {
     function setFinalSupply(uint256 _collectionID) public FunctionAdminRequired(this.setFinalSupply.selector) {
         require (block.timestamp > IMinterContract(minterContract).getEndTime(_collectionID) + collectionAdditionalData[_collectionID].setFinalSupplyTimeAfterMint, "Time has not passed");
         collectionAdditionalData[_collectionID].collectionTotalSupply = collectionAdditionalData[_collectionID].collectionCirculationSupply;
-        collectionAdditionalData[_collectionID].reservedMaxTokensIndex = (_collectionID * 10000000000) + collectionAdditionalData[_collectionID].collectionTotalSupply - 1;
     }
 
     // function to add a minter contract
@@ -328,6 +315,26 @@ contract NextGenCore is ERC721Enumerable, Ownable {
         adminsContract = INextGenAdmins(_newadminsContract);
     }
 
+
+    /// @dev return the reserved max tokens which in all cases was derived from the collection index. This safes 21k gas
+    /// writing it to storage and 2.1k gas reading it when accessed?
+    function _reservedMaxTokensIndex(uint256 _collectionId) internal view returns(uint256 maxIndex_) {
+      return (_collectionId * 10000000000) + (collectionAdditionalData[_collectionId].collectionTotalSupply - 1);
+    }
+
+    /// @dev return the reserved min tokens which in all cases was derived from the collection index. This safes 21k gas
+    /// writing it to storage and 2.1k gas reading it when accessed?
+    function _reservedMinTokensIndex(uint256 _collectionId) internal pure returns(uint256 minIndex_) {
+      return (_collectionId * 10000000000);
+    }
+
+    /// @dev previously a mapping was used to show if a collection exists. This mapping value could only be set in a single place, 
+    /// where the new collection data was written to storage and the colleciton index incremented. Therefore whether a collection
+    /// exists or not can be known simply by comparing if the collection Id is lower than the next collection index.
+    function _collectionExists(uint256 _collectionId) internal view returns(bool) {
+      return(_collectionId < newCollectionIndex);
+    }
+
     // Retrieve Functions
 
     // function to return the tokenURI
@@ -347,7 +354,7 @@ contract NextGenCore is ERC721Enumerable, Ownable {
     // function get Name
 
     function getTokenName(uint256 tokenId) private view returns(string memory)  {
-        uint256 tok = tokenId - collectionAdditionalData[tokenIdsToCollectionIds[tokenId]].reservedMinTokensIndex;
+        uint256 tok = tokenId - _reservedMinTokensIndex(tokenIdsToCollectionIds[tokenId]);
         return string(abi.encodePacked(collectionInfo[viewColIDforTokenID(tokenId)].collectionName, " #" ,tok.toString()));
     }
 
@@ -362,20 +369,23 @@ contract NextGenCore is ERC721Enumerable, Ownable {
     }
 
     // retrieve if data were added
+    /// @dev this previously fetched from a mapping in storage. As the mapping was only ever set
+    /// when the collection total supply was set we can base this view method from the collectionTotalSupply
+    /// and avoid storing the additional mapping:
     function retrievewereDataAdded(uint256 _collectionID) external view returns(bool){
-        return wereDataAdded[_collectionID];
+        return collectionAdditionalData[_collectionID].collectionTotalSupply != 0;
     }
 
     // function to return the min index id of a collection
 
-    function viewTokensIndexMin(uint256 _collectionID) external view returns (uint256) {
-        return(collectionAdditionalData[_collectionID].reservedMinTokensIndex);
+    function viewTokensIndexMin(uint256 _collectionID) external pure returns (uint256) {
+        return(_reservedMinTokensIndex(_collectionID));
     }
 
     // function to return the max index id of a collection
 
     function viewTokensIndexMax(uint256 _collectionID) external view returns (uint256) {
-        return(collectionAdditionalData[_collectionID].reservedMaxTokensIndex);
+        return(_reservedMaxTokensIndex(_collectionID));
     }
 
     // function to return the circ supply of a collection
