@@ -3,8 +3,8 @@
 /**
  *
  *  @title: NextGen Minter Contract
- *  @date: 06-October-2023 
- *  @version: 1.6
+ *  @date: 09-October-2023 
+ *  @version: 1.7
  *  @author: 6529 team
  */
 
@@ -16,8 +16,9 @@ import "./IDelegationManagementContract.sol";
 import "./MerkleProof.sol";
 import "./INextGenAdmins.sol";
 import "./IERC721.sol";
+import "./ReentrancyGuard.sol";
 
-contract NextGenMinterContract is Ownable{
+contract NextGenMinterContract is Ownable, ReentrancyGuard {
 
     // total amount collected during minting from collections
     mapping (uint256 => uint256) public collectionTotalAmount;
@@ -107,16 +108,11 @@ contract NextGenMinterContract is Ownable{
     // mapping of collectionSecondaryAddresses struct
     mapping (uint256 => collectionSecondaryAddresses) private collectionArtistSecondaryAddresses;
 
-    // mint to auction structure
-    struct mintToAuctionStruct {
-        bool status;
-        uint256 auctionCurrentBid;
-        address auctionCurrentBidder;
-        uint auctionEndTime;
-    }
+    // mapping of token id and auction end time
+    mapping (uint256 => uint) private mintToAuctionData;
 
-    // mapping of collectionSecondaryAddresses struct
-    mapping (uint256 => mintToAuctionStruct) public mintToAuctionData;
+    // mapping of token id and status
+    mapping (uint256 => bool) private mintToAuctionStatus;
 
     //external contracts declaration
     INextGenCore public gencore;
@@ -124,7 +120,13 @@ contract NextGenMinterContract is Ownable{
     INextGenAdmins public adminsContract;
 
     // other declarations
-    address public alMintDelegationCol;
+    address private alMintDelegationCol;
+
+    // events
+
+    event PayArtist(address indexed _add, bool status, uint256 indexed funds);
+    event PayTeam(address indexed _add, bool status, uint256 indexed funds);
+    event Withdraw(address indexed _add, bool status, uint256 indexed funds);
 
     // constructor
     constructor (address _gencore, address _del, address _adminsContract) {
@@ -294,27 +296,8 @@ contract NextGenMinterContract is Ownable{
         // users are able to mint after a day passes
         require(tDiff>=1, "1 mint/period");
         lastMintDate[_collectionID] = collectionPhases[_collectionID].allowlistStartTime + (collectionPhases[_collectionID].timePeriod * (gencore.viewCirSupply(_collectionID) - 1));
-        mintToAuctionData[mintIndex].status = true;
-        mintToAuctionData[mintIndex].auctionEndTime = _auctionEndTime;
-    }
-
-    // participate to auction
-
-    function participateToAuction(uint256 _tokenid) public payable {
-        require(msg.value > mintToAuctionData[_tokenid].auctionCurrentBid && block.timestamp <= mintToAuctionData[_tokenid].auctionEndTime && mintToAuctionData[_tokenid].status == true);
-        payable(mintToAuctionData[_tokenid].auctionCurrentBidder).transfer(mintToAuctionData[_tokenid].auctionCurrentBid);
-        mintToAuctionData[_tokenid].auctionCurrentBidder = msg.sender;
-        mintToAuctionData[_tokenid].auctionCurrentBid = msg.value;
-    }
-
-    // claim Token After Auction
-
-    function claimAuction(address _erc721Collection, uint256 _tokenId) public {
-        require(block.timestamp >= mintToAuctionData[_tokenId].auctionEndTime);
-        address ownerOfToken = IERC721(_erc721Collection).ownerOf(_tokenId);
-        IERC721(_erc721Collection).safeTransferFrom(ownerOfToken, mintToAuctionData[_tokenId].auctionCurrentBidder, _tokenId);
-        payable(adminsContract.owner()).transfer(mintToAuctionData[_tokenId].auctionCurrentBid);
-        mintToAuctionData[_tokenId].auctionCurrentBid = 0;
+        mintToAuctionData[mintIndex] = _auctionEndTime;
+        mintToAuctionStatus[mintIndex] = true;
     }
 
     // function to update allowlist mint delegation collection
@@ -399,7 +382,7 @@ contract NextGenMinterContract is Ownable{
 
     function proposePrimaryAddressesAndPercentages(uint256 _collectionID, address _primaryAdd1, address _primaryAdd2, address _primaryAdd3, uint256 _add1Percentage, uint256 _add2Percentage, uint256 _add3Percentage) public ArtistOrAdminRequired(_collectionID, this.proposePrimaryAddressesAndPercentages.selector) {
         require (collectionArtistPrimaryAddresses[_collectionID].status == false, "Already approved");
-        require (_add1Percentage + _add2Percentage + _add3Percentage <= collectionRoyaltiesPrimarySplits[_collectionID].artistPercentage, "Check %");
+        require (_add1Percentage + _add2Percentage + _add3Percentage == collectionRoyaltiesPrimarySplits[_collectionID].artistPercentage, "Check %");
         collectionArtistPrimaryAddresses[_collectionID].primaryAdd1 = _primaryAdd1;
         collectionArtistPrimaryAddresses[_collectionID].primaryAdd2 = _primaryAdd2;
         collectionArtistPrimaryAddresses[_collectionID].primaryAdd3 = _primaryAdd3;
@@ -413,7 +396,7 @@ contract NextGenMinterContract is Ownable{
 
     function proposeSecondaryAddressesAndPercentages(uint256 _collectionID, address _secondaryAdd1, address _secondaryAdd2, address _secondaryAdd3, uint256 _add1Percentage, uint256 _add2Percentage, uint256 _add3Percentage) public ArtistOrAdminRequired(_collectionID, this.proposeSecondaryAddressesAndPercentages.selector) {
         require (collectionArtistSecondaryAddresses[_collectionID].status == false, "Already approved");
-        require (_add1Percentage + _add2Percentage + _add3Percentage <= collectionRoyaltiesSecondarySplits[_collectionID].artistPercentage, "Check %");
+        require (_add1Percentage + _add2Percentage + _add3Percentage == collectionRoyaltiesSecondarySplits[_collectionID].artistPercentage, "Check %");
         collectionArtistSecondaryAddresses[_collectionID].secondaryAdd1 = _secondaryAdd1;
         collectionArtistSecondaryAddresses[_collectionID].secondaryAdd2 = _secondaryAdd2;
         collectionArtistSecondaryAddresses[_collectionID].secondaryAdd3 = _secondaryAdd3;
@@ -432,27 +415,35 @@ contract NextGenMinterContract is Ownable{
 
     // function to pay the artist
 
-    function payArtist(uint256 _collectionID, address _team1, address _team2, uint256 _teamperc1, uint256 _teamperc2) public FunctionAdminRequired(this.payArtist.selector) {
+    function payArtist(uint256 _collectionID, address _team1, address _team2, uint256 _teamperc1, uint256 _teamperc2) public nonReentrant FunctionAdminRequired(this.payArtist.selector) {
         require(collectionArtistPrimaryAddresses[_collectionID].status == true, "Accept Royalties");
         require(collectionTotalAmount[_collectionID] > 0, "Collection Balance must be grater than 0");
         require(collectionRoyaltiesPrimarySplits[_collectionID].artistPercentage + _teamperc1 + _teamperc2 == 100, "Change percentages");
         uint256 royalties = collectionTotalAmount[_collectionID];
         collectionTotalAmount[_collectionID] = 0;
+        address tm1 = _team1;
+        address tm2 = _team2;
+        uint256 colId = _collectionID;
         uint256 artistRoyalties1;
         uint256 artistRoyalties2;
         uint256 artistRoyalties3;
         uint256 teamRoyalties1;
         uint256 teamRoyalties2;
-        artistRoyalties1 = royalties * collectionArtistPrimaryAddresses[_collectionID].add1Percentage / 100;
-        artistRoyalties2 = royalties * collectionArtistPrimaryAddresses[_collectionID].add2Percentage / 100;
-        artistRoyalties3 = royalties * collectionArtistPrimaryAddresses[_collectionID].add3Percentage / 100;
+        artistRoyalties1 = royalties * collectionArtistPrimaryAddresses[colId].add1Percentage / 100;
+        artistRoyalties2 = royalties * collectionArtistPrimaryAddresses[colId].add2Percentage / 100;
+        artistRoyalties3 = royalties * collectionArtistPrimaryAddresses[colId].add3Percentage / 100;
         teamRoyalties1 = royalties * _teamperc1 / 100;
         teamRoyalties2 = royalties * _teamperc2 / 100;
-        payable(collectionArtistPrimaryAddresses[_collectionID].primaryAdd1).transfer(artistRoyalties1);
-        payable(collectionArtistPrimaryAddresses[_collectionID].primaryAdd2).transfer(artistRoyalties2);
-        payable(collectionArtistPrimaryAddresses[_collectionID].primaryAdd3).transfer(artistRoyalties3);
-        payable(_team1).transfer(teamRoyalties1);
-        payable(_team2).transfer(teamRoyalties2);
+        (bool success1, ) = payable(collectionArtistPrimaryAddresses[colId].primaryAdd1).call{value: artistRoyalties1}("");
+        (bool success2, ) = payable(collectionArtistPrimaryAddresses[colId].primaryAdd2).call{value: artistRoyalties2}("");
+        (bool success3, ) = payable(collectionArtistPrimaryAddresses[colId].primaryAdd3).call{value: artistRoyalties3}("");
+        (bool success4, ) = payable(tm1).call{value: teamRoyalties1}("");
+        (bool success5, ) = payable(tm2).call{value: teamRoyalties2}("");
+        emit PayArtist(collectionArtistPrimaryAddresses[colId].primaryAdd1, success1, artistRoyalties1);
+        emit PayArtist(collectionArtistPrimaryAddresses[colId].primaryAdd2, success2, artistRoyalties2);
+        emit PayArtist(collectionArtistPrimaryAddresses[colId].primaryAdd3, success3, artistRoyalties3);
+        emit PayTeam(tm1, success4, teamRoyalties1);
+        emit PayTeam(tm2, success5, teamRoyalties2);
     }
 
     // function to update core contract
@@ -472,7 +463,9 @@ contract NextGenMinterContract is Ownable{
 
     function emergencyWithdraw() public FunctionAdminRequired(this.emergencyWithdraw.selector) {
         uint balance = address(this).balance;
-        payable(msg.sender).transfer(balance);
+        address admin = adminsContract.owner();
+        (bool success, ) = payable(admin).call{value: balance}("");
+        emit Withdraw(msg.sender, success, balance);
     }
 
     // function to retrieve primary splits between artist and team
@@ -521,6 +514,18 @@ contract NextGenMinterContract is Ownable{
 
     function getEndTime(uint256 _collectionID) external view returns (uint) {
         return collectionPhases[_collectionID].publicEndTime;
+    }
+
+    // get auction end time
+
+    function getAuctionEndTime(uint256 _tokenId) external view returns (uint) {
+        return mintToAuctionData[_tokenId];
+    }
+
+    // get auction status
+
+    function getAuctionStatus(uint256 _tokenId) external view  returns (bool) {
+        return mintToAuctionStatus[_tokenId];
     }
 
     // get the minting price of collection
