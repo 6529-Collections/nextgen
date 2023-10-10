@@ -1,6 +1,0 @@
-{
-  "[solidity]": {
-      "editor.formatOnSave": false,
-      "editor.formatOnType": false
-  }
-}

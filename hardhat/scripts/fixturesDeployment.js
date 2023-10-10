@@ -8,11 +8,17 @@ const fixturesDeployment = async () => {
   const addr2 = signersList[2]
   const addr3 = signersList[3]
 
-  const randomizer = await ethers.getContractFactory("NextGenRandomizer")
-  const hhRandomizer = await randomizer.deploy()
+  const randoms = await ethers.getContractFactory("randomText")
+  const hhRandoms = await randoms.deploy()
 
   const nextGenAdmins = await ethers.getContractFactory("NextGenAdmins")
   const hhAdmin = await nextGenAdmins.deploy()
+
+  const randomizer = await ethers.getContractFactory("NextGenRandomizer")
+  const hhRandomizer = await randomizer.deploy(
+    await hhRandoms.getAddress(),
+    await hhAdmin.getAddress(),
+  )
 
   const nextGenCore = await ethers.getContractFactory("NextGenCore")
   const hhCore = await nextGenCore.deploy(
@@ -40,6 +46,7 @@ const fixturesDeployment = async () => {
     hhDelegation: hhDelegation,
     hhMinter: hhMinter,
     hhRandomizer: hhRandomizer,
+    hhRandoms: hhRandoms,
   }
 
   const signers = {
