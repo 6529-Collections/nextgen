@@ -12,7 +12,6 @@ pragma solidity ^0.8.19;
 
 import "./ERC721Enumerable.sol";
 import "./Ownable.sol";
-import "./SafeMath.sol";
 import "./Strings.sol";
 import "./Base64.sol";
 import "./IRandomizer.sol";
@@ -20,7 +19,6 @@ import "./INextGenAdmins.sol";
 import "./IMinterContract.sol";
 
 contract NextGenCore is ERC721Enumerable, Ownable {
-    using SafeMath for uint256;
     using Strings for uint256;
 
     // declare variables

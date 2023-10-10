@@ -10,16 +10,16 @@
 
 pragma solidity ^0.8.19;
 
-import "./XIRandoms.sol";
+import "./IXRandoms.sol";
 import "./INextGenAdmins.sol";
 
 contract NextGenRandomizer {
 
-    IRandoms public randoms;
+    IXRandoms public randoms;
     INextGenAdmins public adminsContract;
 
     constructor(address _randoms, address _admin) {
-        randoms = IRandoms(_randoms);
+        randoms = IXRandoms(_randoms);
         adminsContract = INextGenAdmins(_admin);
     }
 
@@ -33,7 +33,7 @@ contract NextGenRandomizer {
     // update contracts if needed
 
     function updateRandomsContract(address _randoms) public FunctionAdminRequired(this.updateRandomsContract.selector) {
-        randoms = IRandoms(_randoms);
+        randoms = IXRandoms(_randoms);
     }
 
     function updateAdminsContract(address _admin) public FunctionAdminRequired(this.updateAdminsContract.selector) {

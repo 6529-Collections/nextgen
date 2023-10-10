@@ -2,7 +2,7 @@
 
 pragma solidity ^0.8.19;
 
-interface IRandoms {
+interface IXRandoms {
 
     function randomNumber() external view returns (uint256);
 
