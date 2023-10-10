@@ -33,12 +33,12 @@ function getWord(uint256 id) private pure returns (string memory) {
     }
 
 function randomNumber() public view returns (uint256){
-    uint256 randomNum = uint(keccak256(abi.encodePacked(block.prevrandao,gasleft(),msg.sender,blockhash(block.number - 1),block.timestamp))) % 1000;
+    uint256 randomNum = uint(keccak256(abi.encodePacked(block.prevrandao, gasleft(), msg.sender, blockhash(block.number - 1), block.timestamp))) % 1000;
     return randomNum;
 }
 
 function randomWord() public view returns (string memory) {
-    uint256 randomNum = uint(keccak256(abi.encodePacked(block.prevrandao,gasleft(),msg.sender,blockhash(block.number - 1),block.timestamp))) % 10;
+    uint256 randomNum = uint(keccak256(abi.encodePacked(block.prevrandao, gasleft(), msg.sender, blockhash(block.number - 1), block.timestamp))) % 10;
     return getWord(randomNum);
 }
 
@@ -48,7 +48,7 @@ function returnIndex(uint256 id) public view returns (string memory) {
 
 function checkDistribution() public {
     for (uint256 i=0; i<20; i ++) {
-        uint256 randomNum = uint(keccak256(abi.encodePacked(block.prevrandao,gasleft(),msg.sender,blockhash(block.number - 1),block.timestamp))) % 10;
+        uint256 randomNum = uint(keccak256(abi.encodePacked(block.prevrandao, gasleft(), msg.sender, blockhash(block.number - 1), block.timestamp))) % 10;
         if (keccak256(abi.encodePacked(getWord(randomNum))) == keccak256(abi.encodePacked("Acai"))) {
             acai = acai + 1;
         } else if (keccak256(abi.encodePacked(getWord(randomNum))) == keccak256(abi.encodePacked("Ackee"))) {

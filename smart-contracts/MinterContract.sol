@@ -16,9 +16,8 @@ import "./IDelegationManagementContract.sol";
 import "./MerkleProof.sol";
 import "./INextGenAdmins.sol";
 import "./IERC721.sol";
-import "./ReentrancyGuard.sol";
 
-contract NextGenMinterContract is Ownable, ReentrancyGuard {
+contract NextGenMinterContract is Ownable {
 
     // total amount collected during minting from collections
     mapping (uint256 => uint256) public collectionTotalAmount;
@@ -415,7 +414,7 @@ contract NextGenMinterContract is Ownable, ReentrancyGuard {
 
     // function to pay the artist
 
-    function payArtist(uint256 _collectionID, address _team1, address _team2, uint256 _teamperc1, uint256 _teamperc2) public nonReentrant FunctionAdminRequired(this.payArtist.selector) {
+    function payArtist(uint256 _collectionID, address _team1, address _team2, uint256 _teamperc1, uint256 _teamperc2) public FunctionAdminRequired(this.payArtist.selector) {
         require(collectionArtistPrimaryAddresses[_collectionID].status == true, "Accept Royalties");
         require(collectionTotalAmount[_collectionID] > 0, "Collection Balance must be grater than 0");
         require(collectionRoyaltiesPrimarySplits[_collectionID].artistPercentage + _teamperc1 + _teamperc2 == 100, "Change percentages");
