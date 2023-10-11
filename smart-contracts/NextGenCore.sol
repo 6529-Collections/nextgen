@@ -3,8 +3,8 @@
 /**
  *
  *  @title: NextGen Smart Contract
- *  @date: 06-October-2023 
- *  @version: 10.24
+ *  @date: 11-October-2023 
+ *  @version: 10.25
  *  @author: 6529 team
  */
 
@@ -98,14 +98,14 @@ contract NextGenCore is ERC721Enumerable, Ownable {
     mapping (uint256 => bool) public artistSigned; 
 
     // external contracts declaration
-    IRandomizer public randomizer;
-    INextGenAdmins public adminsContract;
+    IRandomizer private randomizer;
+    INextGenAdmins private adminsContract;
     address public minterContract;
+    address public randomizerContract;
 
     // smart contract constructor
-    constructor(string memory name, string memory symbol, address _randomizer, address _adminsContract) ERC721(name, symbol) {
+    constructor(string memory name, string memory symbol, address _adminsContract) ERC721(name, symbol) {
         adminsContract = INextGenAdmins(_adminsContract);
-        randomizer = IRandomizer(_randomizer);
         newCollectionIndex = newCollectionIndex + 1;
     }
 
@@ -169,11 +169,7 @@ contract NextGenCore is ERC721Enumerable, Ownable {
         require(msg.sender == minterContract, "Caller is not the Minter Contract");
         collectionAdditionalData[_collectionID].collectionCirculationSupply = collectionAdditionalData[_collectionID].collectionCirculationSupply + 1;
         if (collectionAdditionalData[_collectionID].collectionTotalSupply >= collectionAdditionalData[_collectionID].collectionCirculationSupply) {
-            tokenToHash[mintIndex] = randomizer.calculateTokenHash(mintIndex, _recipient, _varg0);
-            tokenData[mintIndex] = _tokenData;
-            // mint token
-            _safeMint(_recipient, mintIndex);
-            tokenIdsToCollectionIds[mintIndex] = _collectionID;
+            _mintProcessing(mintIndex, _recipient, _tokenData, _collectionID);
             tokensAirdropPerAddress[_collectionID][_recipient] = tokensAirdropPerAddress[_collectionID][_recipient] + 1;
         }
     }
@@ -184,11 +180,7 @@ contract NextGenCore is ERC721Enumerable, Ownable {
         require(msg.sender == minterContract, "Caller is not the Minter Contract");
         collectionAdditionalData[_collectionID].collectionCirculationSupply = collectionAdditionalData[_collectionID].collectionCirculationSupply + 1;
         if (collectionAdditionalData[_collectionID].collectionTotalSupply >= collectionAdditionalData[_collectionID].collectionCirculationSupply) {
-            tokenToHash[mintIndex] = randomizer.calculateTokenHash(mintIndex, _mintingAddress, _varg0);
-            tokenData[mintIndex] = _tokenData;
-            // mint token
-            _safeMint(_mintTo, mintIndex);
-            tokenIdsToCollectionIds[mintIndex] = _collectionID;
+            _mintProcessing(mintIndex, _mintTo, _tokenData, _collectionID);
             if (phase == 1) {
                 tokensMintedAllowlistAddress[_collectionID][_mintingAddress] = tokensMintedAllowlistAddress[_collectionID][_mintingAddress] + 1;
             } else {
@@ -213,16 +205,21 @@ contract NextGenCore is ERC721Enumerable, Ownable {
         require(_isApprovedOrOwner(burner, _tokenId), "ERC721: caller is not token owner or approved");
         collectionAdditionalData[_mintCollectionID].collectionCirculationSupply = collectionAdditionalData[_mintCollectionID].collectionCirculationSupply + 1;
         if (collectionAdditionalData[_mintCollectionID].collectionTotalSupply >= collectionAdditionalData[_mintCollectionID].collectionCirculationSupply) {
-            // generate hash
-            tokenToHash[mintIndex] = randomizer.calculateTokenHash(mintIndex, burner, _varg0);
-            tokenData[mintIndex] = tokenData[_tokenId];
-            // mint token
-            _safeMint(ownerOf(_tokenId), mintIndex);
-            tokenIdsToCollectionIds[mintIndex] = _mintCollectionID;
+            _mintProcessing(mintIndex, ownerOf(_tokenId), tokenData[_tokenId], _mintCollectionID);
             // burn token
             _burn(_tokenId);
             burnAmount[_burnCollectionID] = burnAmount[_burnCollectionID] + 1;
         }
+    }
+
+    // mint processing
+
+    function _mintProcessing(uint256 _mintIndex, address _recipient, string memory _tokenData, uint256 _collectionID) internal {
+        tokenData[_mintIndex] = _tokenData;
+        randomizer.calculateTokenHash(_mintIndex);
+        // mint token
+        _safeMint(_recipient, _mintIndex);
+        tokenIdsToCollectionIds[_mintIndex] = _collectionID;
     }
 
     // Additional setter functions
@@ -296,6 +293,13 @@ contract NextGenCore is ERC721Enumerable, Ownable {
         collectionFreeze[_collectionID] = true;
     }
 
+    // set tokenHash
+
+    function setTokenHash(uint256 _mintIndex, bytes32 _hash) public {
+        require(msg.sender == randomizerContract);
+        tokenToHash[_mintIndex] = _hash;
+    }
+
     // set final supply
 
     function setFinalSupply(uint256 _collectionID) public FunctionAdminRequired(this.setFinalSupply.selector) {
@@ -316,6 +320,7 @@ contract NextGenCore is ERC721Enumerable, Ownable {
     function updateRandomizerContract(address _newRandomizer) public FunctionAdminRequired(this.updateRandomizerContract.selector) { 
         require(IRandomizer(_newRandomizer).isRandomizerContract() == true, "Contract is not Randomizer");
         randomizer = IRandomizer(_newRandomizer);
+        randomizerContract = _newRandomizer;
     }
 
     // function to update admin contract
@@ -331,13 +336,17 @@ contract NextGenCore is ERC721Enumerable, Ownable {
 
     function tokenURI(uint256 tokenId) public view virtual override returns (string memory) {
         _requireMinted(tokenId);
-        if (onchainMetadata[tokenIdsToCollectionIds[tokenId]] == false) {
-        string memory baseURI = collectionInfo[tokenIdsToCollectionIds[tokenId]].collectionBaseURI;
-        return bytes(baseURI).length > 0 ? string(abi.encodePacked(baseURI, tokenId.toString())) : "";
-        } else {
-        string memory b64 = Base64.encode(abi.encodePacked("<html><head></head><body><script src=\"",collectionInfo[tokenIdsToCollectionIds[tokenId]].collectionLibrary,"\"></script><script>",retrieveGenerativeScript(tokenId),"</script></body></html>"));
-        string memory _uri = string(abi.encodePacked("data:application/json;utf8,{\"name\":\"",getTokenName(tokenId),"\",\"description\":\"",collectionInfo[tokenIdsToCollectionIds[tokenId]].collectionDescription,"\",\"image\":\"",tokenImageAndAttributes[tokenId][0],"\",\"attributes\":[",tokenImageAndAttributes[tokenId][1],"],\"animation_url\":\"data:text/html;base64,",b64,"\"}"));
-        return _uri;
+        if (onchainMetadata[tokenIdsToCollectionIds[tokenId]] == false && tokenToHash[tokenId] != 0x0000000000000000000000000000000000000000000000000000000000000000) {
+            string memory baseURI = collectionInfo[tokenIdsToCollectionIds[tokenId]].collectionBaseURI;
+            return bytes(baseURI).length > 0 ? string(abi.encodePacked(baseURI, tokenId.toString())) : "";
+        } else if (onchainMetadata[tokenIdsToCollectionIds[tokenId]] == false && tokenToHash[tokenId] == 0x0000000000000000000000000000000000000000000000000000000000000000) {
+            string memory baseURI = collectionInfo[tokenIdsToCollectionIds[tokenId]].collectionBaseURI;
+            return bytes(baseURI).length > 0 ? string(abi.encodePacked(baseURI, "pending")) : "";
+        }
+        else {
+            string memory b64 = Base64.encode(abi.encodePacked("<html><head></head><body><script src=\"",collectionInfo[tokenIdsToCollectionIds[tokenId]].collectionLibrary,"\"></script><script>",retrieveGenerativeScript(tokenId),"</script></body></html>"));
+            string memory _uri = string(abi.encodePacked("data:application/json;utf8,{\"name\":\"",getTokenName(tokenId),"\",\"description\":\"",collectionInfo[tokenIdsToCollectionIds[tokenId]].collectionDescription,"\",\"image\":\"",tokenImageAndAttributes[tokenId][0],"\",\"attributes\":[",tokenImageAndAttributes[tokenId][1],"],\"animation_url\":\"data:text/html;base64,",b64,"\"}"));
+            return _uri;
         }
     }
 
