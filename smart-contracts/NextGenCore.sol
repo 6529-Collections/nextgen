@@ -3,7 +3,7 @@
 /**
  *
  *  @title: NextGen Smart Contract
- *  @date: 11-October-2023 
+ *  @date: 12-October-2023 
  *  @version: 10.25
  *  @author: 6529 team
  */
@@ -91,7 +91,7 @@ contract NextGenCore is ERC721Enumerable, Ownable {
     // on-chain token Image URI and attributes
     mapping (uint256 => string[2]) public tokenImageAndAttributes;
 
-    // collectionFreeze Thumbnail
+    // collectionFreeze 
     mapping (uint256 => bool) private collectionFreeze;
 
     // artist signed
@@ -143,7 +143,7 @@ contract NextGenCore is ERC721Enumerable, Ownable {
     // only _collectionArtistAddress , _maxCollectionPurchases can change after total supply is set
 
     function setCollectionData(uint256 _collectionID, address _collectionArtistAddress, uint256 _maxCollectionPurchases, uint256 _collectionTotalSupply, uint _setFinalSupplyTimeAfterMint) public CollectionAdminRequired(_collectionID, this.setCollectionData.selector) {
-        require((isCollectionCreated[_collectionID] == true) && (collectionFreeze[_collectionID] == false) && (_collectionTotalSupply <= 10000000000), "wrong/freezed");
+        require((isCollectionCreated[_collectionID] == true) && (collectionFreeze[_collectionID] == false) && (_collectionTotalSupply <= 10000000000), "err/freezed");
         if (collectionAdditionalData[_collectionID].collectionTotalSupply == 0) {
             collectionAdditionalData[_collectionID].collectionArtistAddress = _collectionArtistAddress;
             collectionAdditionalData[_collectionID].maxCollectionPurchases = _maxCollectionPurchases;
@@ -165,22 +165,22 @@ contract NextGenCore is ERC721Enumerable, Ownable {
 
     // airdrop called from minterContract
     
-    function airDropTokens(uint256 mintIndex, address _recipient, string memory _tokenData, uint256 _varg0, uint256 _collectionID) external {
+    function airDropTokens(uint256 mintIndex, address _recipient, string memory _tokenData, uint256 _saltfun_o, uint256 _collectionID) external {
         require(msg.sender == minterContract, "Caller is not the Minter Contract");
         collectionAdditionalData[_collectionID].collectionCirculationSupply = collectionAdditionalData[_collectionID].collectionCirculationSupply + 1;
         if (collectionAdditionalData[_collectionID].collectionTotalSupply >= collectionAdditionalData[_collectionID].collectionCirculationSupply) {
-            _mintProcessing(mintIndex, _recipient, _tokenData, _collectionID);
+            _mintProcessing(mintIndex, _recipient, _tokenData, _collectionID, _saltfun_o);
             tokensAirdropPerAddress[_collectionID][_recipient] = tokensAirdropPerAddress[_collectionID][_recipient] + 1;
         }
     }
 
     // mint called from minterContract
 
-    function mint(uint256 mintIndex, address _mintingAddress , address _mintTo, string memory _tokenData, uint256 _varg0, uint256 _collectionID, uint256 phase) external {
+    function mint(uint256 mintIndex, address _mintingAddress , address _mintTo, string memory _tokenData, uint256 _saltfun_o, uint256 _collectionID, uint256 phase) external {
         require(msg.sender == minterContract, "Caller is not the Minter Contract");
         collectionAdditionalData[_collectionID].collectionCirculationSupply = collectionAdditionalData[_collectionID].collectionCirculationSupply + 1;
         if (collectionAdditionalData[_collectionID].collectionTotalSupply >= collectionAdditionalData[_collectionID].collectionCirculationSupply) {
-            _mintProcessing(mintIndex, _mintTo, _tokenData, _collectionID);
+            _mintProcessing(mintIndex, _mintTo, _tokenData, _collectionID, _saltfun_o);
             if (phase == 1) {
                 tokensMintedAllowlistAddress[_collectionID][_mintingAddress] = tokensMintedAllowlistAddress[_collectionID][_mintingAddress] + 1;
             } else {
@@ -200,12 +200,12 @@ contract NextGenCore is ERC721Enumerable, Ownable {
 
     // burn to mint called from minterContract
 
-    function burnToMint(uint256 mintIndex, uint256 _burnCollectionID, uint256 _tokenId, uint256 _mintCollectionID, uint256 _varg0, address burner) external {
+    function burnToMint(uint256 mintIndex, uint256 _burnCollectionID, uint256 _tokenId, uint256 _mintCollectionID, uint256 _saltfun_o, address burner) external {
         require(msg.sender == minterContract, "Caller is not the Minter Contract");
         require(_isApprovedOrOwner(burner, _tokenId), "ERC721: caller is not token owner or approved");
         collectionAdditionalData[_mintCollectionID].collectionCirculationSupply = collectionAdditionalData[_mintCollectionID].collectionCirculationSupply + 1;
         if (collectionAdditionalData[_mintCollectionID].collectionTotalSupply >= collectionAdditionalData[_mintCollectionID].collectionCirculationSupply) {
-            _mintProcessing(mintIndex, ownerOf(_tokenId), tokenData[_tokenId], _mintCollectionID);
+            _mintProcessing(mintIndex, ownerOf(_tokenId), tokenData[_tokenId], _mintCollectionID, _saltfun_o);
             // burn token
             _burn(_tokenId);
             burnAmount[_burnCollectionID] = burnAmount[_burnCollectionID] + 1;
@@ -214,9 +214,9 @@ contract NextGenCore is ERC721Enumerable, Ownable {
 
     // mint processing
 
-    function _mintProcessing(uint256 _mintIndex, address _recipient, string memory _tokenData, uint256 _collectionID) internal {
+    function _mintProcessing(uint256 _mintIndex, address _recipient, string memory _tokenData, uint256 _collectionID, uint256 _saltfun_o) internal {
         tokenData[_mintIndex] = _tokenData;
-        randomizer.calculateTokenHash(_mintIndex);
+        randomizer.calculateTokenHash(_mintIndex, _saltfun_o);
         // mint token
         _safeMint(_recipient, _mintIndex);
         tokenIdsToCollectionIds[_mintIndex] = _collectionID;
@@ -425,6 +425,12 @@ contract NextGenCore is ERC721Enumerable, Ownable {
 
     function retrieveCollectionAdditionalData(uint256 _collectionID) public view returns(address, uint256, uint256, uint256, uint){
         return (collectionAdditionalData[_collectionID].collectionArtistAddress, collectionAdditionalData[_collectionID].maxCollectionPurchases, collectionAdditionalData[_collectionID].collectionCirculationSupply, collectionAdditionalData[_collectionID].collectionTotalSupply, collectionAdditionalData[_collectionID].setFinalSupplyTimeAfterMint);
+    }
+
+    // function to retrieve tokenHash
+
+    function retrieveTokenHash(uint256 _tokenid) public view returns(bytes32){
+        return (tokenToHash[_tokenid]);
     }
 
     // function to retrieve the Generative Script of a token

@@ -180,7 +180,7 @@ contract NextGenMinterContract is Ownable {
 
     // airdrop function
     
-    function airDropTokens(address[] memory _recipients, string[] memory _tokenData, uint256[] memory _varg0, uint256 _collectionID, uint256[] memory _numberOfTokens) public FunctionAdminRequired(this.airDropTokens.selector) {
+    function airDropTokens(address[] memory _recipients, string[] memory _tokenData, uint256[] memory _saltfun_o, uint256 _collectionID, uint256[] memory _numberOfTokens) public FunctionAdminRequired(this.airDropTokens.selector) {
         require(gencore.retrievewereDataAdded(_collectionID) == true, "Add data");
         uint256 collectionTokenMintIndex;
         for (uint256 y=0; y< _recipients.length; y++) {
@@ -188,14 +188,14 @@ contract NextGenMinterContract is Ownable {
             require(collectionTokenMintIndex <= gencore.viewTokensIndexMax(_collectionID), "No supply");
             for(uint256 i = 0; i < _numberOfTokens[y]; i++) {
                 uint256 mintIndex = gencore.viewTokensIndexMin(_collectionID) + gencore.viewCirSupply(_collectionID);
-                gencore.airDropTokens(mintIndex, _recipients[y], _tokenData[y], _varg0[y], _collectionID);
+                gencore.airDropTokens(mintIndex, _recipients[y], _tokenData[y], _saltfun_o[y], _collectionID);
             }
         }
     }
 
     // mint function
 
-    function mint(uint256 _collectionID, uint256 _numberOfTokens, uint256 _maxAllowance, string memory _tokenData, address _mintTo, bytes32[] calldata merkleProof, address _delegator, uint256 _varg0) public payable {
+    function mint(uint256 _collectionID, uint256 _numberOfTokens, uint256 _maxAllowance, string memory _tokenData, address _mintTo, bytes32[] calldata merkleProof, address _delegator, uint256 _saltfun_o) public payable {
         require(setMintingCosts[_collectionID] == true, "Set Minting Costs");
         uint256 col = _collectionID;
         address mintingAddress;
@@ -235,7 +235,7 @@ contract NextGenMinterContract is Ownable {
         require(msg.value >= (getPrice(col) * _numberOfTokens), "Wrong ETH");
         for(uint256 i = 0; i < _numberOfTokens; i++) {
             uint256 mintIndex = gencore.viewTokensIndexMin(col) + gencore.viewCirSupply(col);
-            gencore.mint(mintIndex, mintingAddress, _mintTo, tokData, _varg0, col, phase);
+            gencore.mint(mintIndex, mintingAddress, _mintTo, tokData, _saltfun_o, col, phase);
         }
         collectionTotalAmount[col] = collectionTotalAmount[col] + msg.value;
         // control mechanism for sale option 3
@@ -257,7 +257,7 @@ contract NextGenMinterContract is Ownable {
 
     // burn to mint function (does not require contract approval)
 
-    function burnToMint(uint256 _burnCollectionID, uint256 _tokenId, uint256 _mintCollectionID, uint256 _varg0) public payable {
+    function burnToMint(uint256 _burnCollectionID, uint256 _tokenId, uint256 _mintCollectionID, uint256 _saltfun_o) public payable {
         require(burnToMintCollections[_burnCollectionID][_mintCollectionID] == true, "Initialize burn");
         require(block.timestamp >= collectionPhases[_mintCollectionID].publicStartTime && block.timestamp<=collectionPhases[_mintCollectionID].publicEndTime,"No minting");
         require ((_tokenId >= gencore.viewTokensIndexMin(_burnCollectionID)) && (_tokenId <= gencore.viewTokensIndexMax(_burnCollectionID)), "col/token id error");
@@ -269,19 +269,19 @@ contract NextGenMinterContract is Ownable {
         uint256 mintIndex = gencore.viewTokensIndexMin(_mintCollectionID) + gencore.viewCirSupply(_mintCollectionID);
         // burn and mint token
         address burner = msg.sender;
-        gencore.burnToMint(mintIndex, _burnCollectionID, _tokenId, _mintCollectionID, _varg0, burner);
+        gencore.burnToMint(mintIndex, _burnCollectionID, _tokenId, _mintCollectionID, _saltfun_o, burner);
         collectionTotalAmount[_mintCollectionID] = collectionTotalAmount[_mintCollectionID] + msg.value;
     }
 
     // mint and auction
     
-    function mintAndAuction(address _recipient, string memory _tokenData, uint256 _varg0, uint256 _collectionID, uint _auctionEndTime) public FunctionAdminRequired(this.mintAndAuction.selector) {
+    function mintAndAuction(address _recipient, string memory _tokenData, uint256 _saltfun_o, uint256 _collectionID, uint _auctionEndTime) public FunctionAdminRequired(this.mintAndAuction.selector) {
         require(gencore.retrievewereDataAdded(_collectionID) == true, "Add data");
         uint256 collectionTokenMintIndex;
         collectionTokenMintIndex = gencore.viewTokensIndexMin(_collectionID) + gencore.viewCirSupply(_collectionID);
         require(collectionTokenMintIndex <= gencore.viewTokensIndexMax(_collectionID), "No supply");
         uint256 mintIndex = gencore.viewTokensIndexMin(_collectionID) + gencore.viewCirSupply(_collectionID);
-        gencore.airDropTokens(mintIndex, _recipient, _tokenData, _varg0, _collectionID);
+        gencore.airDropTokens(mintIndex, _recipient, _tokenData, _saltfun_o, _collectionID);
         uint timeOfLastMint;
         // check 1 per period
         if (lastMintDate[_collectionID] == 0) {
@@ -325,7 +325,7 @@ contract NextGenMinterContract is Ownable {
 
     // burn or swap to mint (requires contract approval)
 
-    function burnOrSwapExternalToMint(address _erc721Collection, uint256 _burnCollectionID, uint256 _tokenId, uint256 _mintCollectionID, string memory _tokenData, bytes32[] calldata merkleProof, uint256 _varg0) public payable {
+    function burnOrSwapExternalToMint(address _erc721Collection, uint256 _burnCollectionID, uint256 _tokenId, uint256 _mintCollectionID, string memory _tokenData, bytes32[] calldata merkleProof, uint256 _saltfun_o) public payable {
         bytes32 externalCol = keccak256(abi.encodePacked(_erc721Collection,_burnCollectionID));
         require(burnExternalToMintCollections[externalCol][_mintCollectionID] == true, "Initialize external burn");
         require(setMintingCosts[_mintCollectionID] == true, "Set Minting Costs");
@@ -362,7 +362,7 @@ contract NextGenMinterContract is Ownable {
         require(collectionTokenMintIndex <= gencore.viewTokensIndexMax(col), "No supply");
         require(msg.value >= (getPrice(col) * 1), "Wrong ETH");
         uint256 mintIndex = gencore.viewTokensIndexMin(col) + gencore.viewCirSupply(col);
-        gencore.mint(mintIndex, mintingAddress, ownerOfToken, tokData, _varg0, col, phase);
+        gencore.mint(mintIndex, mintingAddress, ownerOfToken, tokData, _saltfun_o, col, phase);
         collectionTotalAmount[col] = collectionTotalAmount[col] + msg.value;
     }
 
