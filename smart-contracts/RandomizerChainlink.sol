@@ -3,8 +3,8 @@
 /**
  *
  *  @title: NextGen Randomizer Contract VRF
- *  @date: 12-October-2023 
- *  @version: 1.5
+ *  @date: 13-October-2023 
+ *  @version: 1.6
  *  @author: 6529 team
  */
 
@@ -17,29 +17,20 @@ import "./INextGenCore.sol";
 import "./INextGenAdmins.sol";
 
 contract NextGenRandomizerVRF is VRFConsumerBaseV2, Ownable {
-    event RequestSent(uint256 requestId, uint32 numWords);
     event RequestFulfilled(uint256 requestId, uint256[] randomWords);
 
-    struct RequestStatus {
-        bool fulfilled; // whether the request has been successfully fulfilled
-        bool exists; // whether a requestId exists
-        uint256[] randomWords;
-    }
-    mapping(uint256 => RequestStatus) public s_requests; 
     VRFCoordinatorV2Interface public COORDINATOR;
 
     // chainlink data
     uint64 s_subscriptionId;
     bytes32 public keyHash = 0x79d3d8832d904592c0bf9818b621522c988bb8b0c05cdc3b15aea1b6e8db0c15;
-    uint32 public callbackGasLimit = 400000;
+    uint32 public callbackGasLimit = 100000;
     uint16 public requestConfirmations = 3;
-    uint32 public numWords = 2;
+    uint32 public numWords = 1;
 
     mapping(uint256 => bytes32) public tokenHash;
     mapping(uint256 => uint256) public tokenToRequest;
     mapping(uint256 => uint256) public requestToToken;
-    uint256[] public requestIds;
-    uint256 public lastRequestId;
 
     address gencore;
     INextGenCore public gencoreContract;
@@ -67,25 +58,13 @@ contract NextGenRandomizerVRF is VRFConsumerBaseV2, Ownable {
             callbackGasLimit,  
             numWords
         );
-        s_requests[requestId] = RequestStatus({
-            randomWords: new uint256[](0),
-            exists: true,
-            fulfilled: false
-        });
-        requestIds.push(requestId);
-        lastRequestId = requestId;
-        emit RequestSent(requestId, numWords);
         tokenToRequest[tokenid] = requestId;
         requestToToken[requestId] = tokenid;
         return (requestId);
     }
 
     function fulfillRandomWords(uint256 _requestId, uint256[] memory _randomWords) internal override {
-        require(s_requests[_requestId].exists, "request not found");
-        s_requests[_requestId].fulfilled = true;
-        s_requests[_requestId].randomWords = _randomWords;
-        tokenHash[requestToToken[_requestId]] = keccak256(abi.encodePacked(_randomWords));
-        gencoreContract.setTokenHash(requestToToken[_requestId], tokenHash[requestToToken[_requestId]]);
+        gencoreContract.setTokenHash(requestToToken[_requestId], bytes32(abi.encodePacked(_randomWords)));
         emit RequestFulfilled(_requestId, _randomWords);
     }
 
@@ -122,17 +101,4 @@ contract NextGenRandomizerVRF is VRFConsumerBaseV2, Ownable {
         return true;
     }
 
-    // functions to get requests data
-
-    function getRequestStatus(uint256 _requestId) external view returns (bool fulfilled, uint256[] memory randomWords) {
-        require(s_requests[_requestId].exists, "request not found");
-        RequestStatus memory request = s_requests[_requestId];
-        return (request.fulfilled, request.randomWords);
-    }
-
-    function getRequestWords(uint256 _requestId) external view returns (uint256[] memory randomWords) {
-        require(s_requests[_requestId].exists, "request not found");
-        RequestStatus memory request = s_requests[_requestId];
-        return (request.randomWords);
-    }
 }
