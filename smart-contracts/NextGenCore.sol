@@ -3,8 +3,8 @@
 /**
  *
  *  @title: NextGen Smart Contract
- *  @date: 12-October-2023 
- *  @version: 10.25
+ *  @date: 16-October-2023 
+ *  @version: 10.26
  *  @author: 6529 team
  */
 
@@ -56,7 +56,7 @@ contract NextGenCore is ERC721Enumerable, Ownable {
     // other mappings
 
     // checks if a collection was created
-    mapping (uint256 => bool) public isCollectionCreated; 
+    mapping (uint256 => bool) private isCollectionCreated; 
 
     // checks if data on a collection were added
     mapping (uint256 => bool) private wereDataAdded;
@@ -217,9 +217,8 @@ contract NextGenCore is ERC721Enumerable, Ownable {
     function _mintProcessing(uint256 _mintIndex, address _recipient, string memory _tokenData, uint256 _collectionID, uint256 _saltfun_o) internal {
         tokenData[_mintIndex] = _tokenData;
         randomizer.calculateTokenHash(_mintIndex, _saltfun_o);
-        // mint token
-        _safeMint(_recipient, _mintIndex);
         tokenIdsToCollectionIds[_mintIndex] = _collectionID;
+        _safeMint(_recipient, _mintIndex);
     }
 
     // Additional setter functions
@@ -297,6 +296,7 @@ contract NextGenCore is ERC721Enumerable, Ownable {
 
     function setTokenHash(uint256 _mintIndex, bytes32 _hash) public {
         require(msg.sender == randomizerContract);
+        require(tokenToHash[_mintIndex] == 0x0000000000000000000000000000000000000000000000000000000000000000);
         tokenToHash[_mintIndex] = _hash;
     }
 

@@ -3,8 +3,8 @@
 /**
  *
  *  @title: NextGen Randomizer Contract VRF
- *  @date: 13-October-2023 
- *  @version: 1.6
+ *  @date: 16-October-2023 
+ *  @version: 1.7
  *  @author: 6529 team
  */
 
@@ -24,11 +24,10 @@ contract NextGenRandomizerVRF is VRFConsumerBaseV2, Ownable {
     // chainlink data
     uint64 s_subscriptionId;
     bytes32 public keyHash = 0x79d3d8832d904592c0bf9818b621522c988bb8b0c05cdc3b15aea1b6e8db0c15;
-    uint32 public callbackGasLimit = 100000;
+    uint32 public callbackGasLimit = 40000;
     uint16 public requestConfirmations = 3;
     uint32 public numWords = 1;
 
-    mapping(uint256 => bytes32) public tokenHash;
     mapping(uint256 => uint256) public tokenToRequest;
     mapping(uint256 => uint256) public requestToToken;
 
@@ -64,7 +63,7 @@ contract NextGenRandomizerVRF is VRFConsumerBaseV2, Ownable {
     }
 
     function fulfillRandomWords(uint256 _requestId, uint256[] memory _randomWords) internal override {
-        gencoreContract.setTokenHash(requestToToken[_requestId], bytes32(abi.encodePacked(_randomWords)));
+        gencoreContract.setTokenHash(requestToToken[_requestId], bytes32(abi.encodePacked(_randomWords,requestToToken[_requestId])));
         emit RequestFulfilled(_requestId, _randomWords);
     }
 
