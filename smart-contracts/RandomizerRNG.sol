@@ -3,8 +3,8 @@
 /**
  *
  *  @title: NextGen Randomizer Contract RNG
- *  @date: 16-October-2023
- *  @version: 1.6
+ *  @date: 18-October-2023
+ *  @version: 1.7
  *  @author: 6529 team
  */
 
@@ -24,6 +24,7 @@ contract NextGenRandomizerRNG is ArrngConsumer, Ownable {
     event Withdraw(address indexed _add, bool status, uint256 indexed funds);
     uint256 ethRequired;
     mapping(uint256 => uint256) public tokenToRequest;
+    mapping(uint256 => uint256) public tokenIdToCollection;
 
     constructor(address _gencore, address _adminsContract, address _arRNG) ArrngConsumer(_arRNG) {
         gencore = _gencore;
@@ -37,20 +38,21 @@ contract NextGenRandomizerRNG is ArrngConsumer, Ownable {
     }
 
     function requestRandomWords(uint256 tokenid, uint256 _ethRequired) public payable {
-         require(msg.sender == gencore);
-         uint256 requestId = arrngController.requestRandomWords{value: _ethRequired}(1, (address(this)));
-         tokenToRequest[tokenid] = requestId;
+        require(msg.sender == gencore);
+        uint256 requestId = arrngController.requestRandomWords{value: _ethRequired}(1, (address(this)));
+        tokenToRequest[tokenid] = requestId;
         requestToToken[requestId] = tokenid;
 
     }
 
     function fulfillRandomWords(uint256 id, uint256[] memory numbers) internal override {
-        gencoreContract.setTokenHash(requestToToken[id], bytes32(abi.encodePacked(numbers,requestToToken[id])));
+        gencoreContract.setTokenHash(tokenIdToCollection[requestToToken[id]], requestToToken[id], bytes32(abi.encodePacked(numbers,requestToToken[id])));
     }
 
     // function that calculates the random hash and returns it to the gencore contract
-    function calculateTokenHash(uint256 _mintIndex, uint256 _saltfun_o) public {
+    function calculateTokenHash(uint256 _collectionID, uint256 _mintIndex, uint256 _saltfun_o) public {
         require(msg.sender == gencore);
+        tokenIdToCollection[_mintIndex] = _collectionID;
         requestRandomWords(_mintIndex, ethRequired);
     }
 

@@ -3,8 +3,8 @@
 /**
  *
  *  @title: NextGen Smart Contract
- *  @date: 16-October-2023 
- *  @version: 10.26
+ *  @date: 18-October-2023 
+ *  @version: 10.27
  *  @author: 6529 team
  */
 
@@ -48,6 +48,8 @@ contract NextGenCore is ERC721Enumerable, Ownable {
         uint256 reservedMinTokensIndex;
         uint256 reservedMaxTokensIndex;
         uint setFinalSupplyTimeAfterMint;
+        address randomizerContract;
+        IRandomizer randomizer;
     }
 
     // mapping of collectionAdditionalData struct
@@ -98,10 +100,8 @@ contract NextGenCore is ERC721Enumerable, Ownable {
     mapping (uint256 => bool) public artistSigned; 
 
     // external contracts declaration
-    IRandomizer private randomizer;
     INextGenAdmins private adminsContract;
     address public minterContract;
-    address public randomizerContract;
 
     // smart contract constructor
     constructor(string memory name, string memory symbol, address _adminsContract) ERC721(name, symbol) {
@@ -163,6 +163,14 @@ contract NextGenCore is ERC721Enumerable, Ownable {
         }
     }
 
+    // Add Randomizer contract on collection
+
+    function addRandomizer(uint256 _collectionID, address _randomizerContract) public FunctionAdminRequired(this.addRandomizer.selector) {
+        require(IRandomizer(_randomizerContract).isRandomizerContract() == true, "Contract is not Randomizer");
+        collectionAdditionalData[_collectionID].randomizerContract = _randomizerContract;
+        collectionAdditionalData[_collectionID].randomizer = IRandomizer(_randomizerContract);
+    }
+
     // airdrop called from minterContract
     
     function airDropTokens(uint256 mintIndex, address _recipient, string memory _tokenData, uint256 _saltfun_o, uint256 _collectionID) external {
@@ -216,7 +224,7 @@ contract NextGenCore is ERC721Enumerable, Ownable {
 
     function _mintProcessing(uint256 _mintIndex, address _recipient, string memory _tokenData, uint256 _collectionID, uint256 _saltfun_o) internal {
         tokenData[_mintIndex] = _tokenData;
-        randomizer.calculateTokenHash(_mintIndex, _saltfun_o);
+        collectionAdditionalData[_collectionID].randomizer.calculateTokenHash(_collectionID, _mintIndex, _saltfun_o);
         tokenIdsToCollectionIds[_mintIndex] = _collectionID;
         _safeMint(_recipient, _mintIndex);
     }
@@ -294,8 +302,8 @@ contract NextGenCore is ERC721Enumerable, Ownable {
 
     // set tokenHash
 
-    function setTokenHash(uint256 _mintIndex, bytes32 _hash) public {
-        require(msg.sender == randomizerContract);
+    function setTokenHash(uint256 _collectionID, uint256 _mintIndex, bytes32 _hash) external {
+        require(msg.sender == collectionAdditionalData[_collectionID].randomizerContract);
         require(tokenToHash[_mintIndex] == 0x0000000000000000000000000000000000000000000000000000000000000000);
         tokenToHash[_mintIndex] = _hash;
     }
@@ -313,14 +321,6 @@ contract NextGenCore is ERC721Enumerable, Ownable {
     function addMinterContract(address _minterContract) public FunctionAdminRequired(this.addMinterContract.selector) { 
         require(IMinterContract(_minterContract).isMinterContract() == true, "Contract is not Minter");
         minterContract = _minterContract;
-    }
-
-    // function to update the randomizer contract
-
-    function updateRandomizerContract(address _newRandomizer) public FunctionAdminRequired(this.updateRandomizerContract.selector) { 
-        require(IRandomizer(_newRandomizer).isRandomizerContract() == true, "Contract is not Randomizer");
-        randomizer = IRandomizer(_newRandomizer);
-        randomizerContract = _newRandomizer;
     }
 
     // function to update admin contract
@@ -404,6 +404,12 @@ contract NextGenCore is ERC721Enumerable, Ownable {
         return (tokensMintedPerAddress[_collectionID][_address]);
     }
 
+    // function to retrieve the airdrop/minted tokens per address 
+
+    function retrieveTokensAirdroppedPerAddress(uint256 _collectionID, address _address) public view returns(uint256) {
+        return (tokensAirdropPerAddress[_collectionID][_address]);
+    }
+
     // function to return the artist's address
     function retrieveArtistAddress(uint256 _collectionID) external view returns(address) {
         return (collectionAdditionalData[_collectionID].collectionArtistAddress);
@@ -423,8 +429,8 @@ contract NextGenCore is ERC721Enumerable, Ownable {
 
     // function to retrieve the Additional data of a Collection
 
-    function retrieveCollectionAdditionalData(uint256 _collectionID) public view returns(address, uint256, uint256, uint256, uint){
-        return (collectionAdditionalData[_collectionID].collectionArtistAddress, collectionAdditionalData[_collectionID].maxCollectionPurchases, collectionAdditionalData[_collectionID].collectionCirculationSupply, collectionAdditionalData[_collectionID].collectionTotalSupply, collectionAdditionalData[_collectionID].setFinalSupplyTimeAfterMint);
+    function retrieveCollectionAdditionalData(uint256 _collectionID) public view returns(address, uint256, uint256, uint256, uint, address){
+        return (collectionAdditionalData[_collectionID].collectionArtistAddress, collectionAdditionalData[_collectionID].maxCollectionPurchases, collectionAdditionalData[_collectionID].collectionCirculationSupply, collectionAdditionalData[_collectionID].collectionTotalSupply, collectionAdditionalData[_collectionID].setFinalSupplyTimeAfterMint, collectionAdditionalData[_collectionID].randomizerContract);
     }
 
     // function to retrieve tokenHash
@@ -448,12 +454,6 @@ contract NextGenCore is ERC721Enumerable, Ownable {
 
     function totalSupplyOfCollection(uint256 _collectionID) public view returns (uint256) {
         return (collectionAdditionalData[_collectionID].collectionCirculationSupply - burnAmount[_collectionID]);
-    }
-
-    // function to retrieve the airdrop/minted tokens per address 
-
-    function retrieveTokensPerAddress(uint256 _collectionID, address _address) public view returns(uint256, uint256, uint256) {
-        return (tokensAirdropPerAddress[_collectionID][_address],  tokensMintedAllowlistAddress[_collectionID][_address], tokensMintedPerAddress[_collectionID][_address]);
     }
 
     // function to retrieve the token image uri and the attributes stored on-chain for a token id.

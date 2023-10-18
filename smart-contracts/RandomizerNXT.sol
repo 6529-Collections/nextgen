@@ -3,8 +3,8 @@
 /**
  *
  *  @title: NextGen Randomizer Contract
- *  @date: 09-October-2023 
- *  @version: 1.3
+ *  @date: 18-October-2023 
+ *  @version: 1.4
  *  @author: 6529 team
  */
 
@@ -15,7 +15,7 @@ import "./INextGenAdmins.sol";
 import "./Ownable.sol";
 import "./INextGenCore.sol";
 
-contract NextGenRandomizer {
+contract NextGenRandomizerNXT {
 
     IXRandoms public randoms;
     INextGenAdmins public adminsContract;
@@ -47,10 +47,10 @@ contract NextGenRandomizer {
     }
 
     // function that calculates the random hash and returns it to the gencore contract
-    function calculateTokenHash(uint256 _mintIndex, uint256 _saltfun_o) public {
+    function calculateTokenHash(uint256 _collectionID, uint256 _mintIndex, uint256 _saltfun_o) public {
         require(msg.sender == gencore);
         bytes32 hash = keccak256(abi.encodePacked(_mintIndex, blockhash(block.number - 1), randoms.randomNumber(), randoms.randomWord()));
-        gencoreContract.setTokenHash(_mintIndex, hash);
+        gencoreContract.setTokenHash(_collectionID, _mintIndex, hash);
     }
 
     // get randomizer contract status

@@ -30,7 +30,7 @@ interface INextGenCore {
 
     function retrieveArtistAddress(uint256 _collectionID) external view returns(address);
 
-    function setTokenHash(uint256 _mintIndex, bytes32 _hash) external;
+    function setTokenHash(uint256 _collectionID, uint256 _mintIndex, bytes32 _hash) external;
 
     function retrieveTokenHash(uint256 _tokenid) external view returns(bytes32);
 

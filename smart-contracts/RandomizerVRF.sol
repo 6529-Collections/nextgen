@@ -3,8 +3,8 @@
 /**
  *
  *  @title: NextGen Randomizer Contract VRF
- *  @date: 16-October-2023 
- *  @version: 1.7
+ *  @date: 18-October-2023 
+ *  @version: 1.8
  *  @author: 6529 team
  */
 
@@ -28,6 +28,7 @@ contract NextGenRandomizerVRF is VRFConsumerBaseV2, Ownable {
     uint16 public requestConfirmations = 3;
     uint32 public numWords = 1;
 
+    mapping(uint256 => uint256) public tokenIdToCollection;
     mapping(uint256 => uint256) public tokenToRequest;
     mapping(uint256 => uint256) public requestToToken;
 
@@ -48,9 +49,9 @@ contract NextGenRandomizerVRF is VRFConsumerBaseV2, Ownable {
       _;
     }
 
-    function requestRandomWords(uint256 tokenid) public returns (uint256 requestId) {
+    function requestRandomWords(uint256 tokenid) public {
         require(msg.sender == gencore);
-        requestId = COORDINATOR.requestRandomWords(
+        uint256 requestId = COORDINATOR.requestRandomWords(
             keyHash,
             s_subscriptionId,
             requestConfirmations,
@@ -59,17 +60,17 @@ contract NextGenRandomizerVRF is VRFConsumerBaseV2, Ownable {
         );
         tokenToRequest[tokenid] = requestId;
         requestToToken[requestId] = tokenid;
-        return (requestId);
     }
 
     function fulfillRandomWords(uint256 _requestId, uint256[] memory _randomWords) internal override {
-        gencoreContract.setTokenHash(requestToToken[_requestId], bytes32(abi.encodePacked(_randomWords,requestToToken[_requestId])));
+        gencoreContract.setTokenHash(tokenIdToCollection[requestToToken[_requestId]], requestToToken[_requestId], bytes32(abi.encodePacked(_randomWords,requestToToken[_requestId])));
         emit RequestFulfilled(_requestId, _randomWords);
     }
 
     // function that calculates the random hash and returns it to the gencore contract
-    function calculateTokenHash(uint256 _mintIndex, uint256 _saltfun_o) public {
+    function calculateTokenHash(uint256 _collectionID, uint256 _mintIndex, uint256 _saltfun_o) public {
         require(msg.sender == gencore);
+        tokenIdToCollection[_mintIndex] = _collectionID;
         requestRandomWords(_mintIndex);
     }
 

@@ -3,8 +3,8 @@
 /**
  *
  *  @title: NextGen Minter Contract
- *  @date: 09-October-2023 
- *  @version: 1.7
+ *  @date: 18-October-2023 
+ *  @version: 1.8
  *  @author: 6529 team
  */
 
@@ -52,6 +52,7 @@ contract NextGenMinterContract is Ownable {
         uint256 timePeriod;
         uint256 rate;
         uint8 salesOption;
+        address delAddress;
     }
 
     // mapping of collectionPhasesData struct
@@ -115,11 +116,8 @@ contract NextGenMinterContract is Ownable {
 
     //external contracts declaration
     INextGenCore public gencore;
-    IDelegationManagementContract public dmc;
-    INextGenAdmins public adminsContract;
-
-    // other declarations
-    address private alMintDelegationCol;
+    IDelegationManagementContract private dmc;
+    INextGenAdmins private adminsContract;
 
     // events
 
@@ -132,7 +130,6 @@ contract NextGenMinterContract is Ownable {
         gencore = INextGenCore(_gencore);
         dmc = IDelegationManagementContract(_del);
         adminsContract = INextGenAdmins(_adminsContract);
-        alMintDelegationCol = 0x33FD426905F149f8376e227d0C9D3340AaD17aF1;
     }
 
     // certain functions can only be called by an admin or the artist
@@ -157,13 +154,14 @@ contract NextGenMinterContract is Ownable {
 
     // function to add a collection's minting costs
 
-    function setCollectionCosts(uint256 _collectionID, uint256 _collectionMintCost, uint256 _collectionEndMintCost, uint256 _rate, uint256 _timePeriod, uint8 _salesOption) public CollectionAdminRequired(_collectionID, this.setCollectionCosts.selector) {
+    function setCollectionCosts(uint256 _collectionID, uint256 _collectionMintCost, uint256 _collectionEndMintCost, uint256 _rate, uint256 _timePeriod, uint8 _salesOption, address _delAddress) public CollectionAdminRequired(_collectionID, this.setCollectionCosts.selector) {
         require(gencore.retrievewereDataAdded(_collectionID) == true, "Add data");
         collectionPhases[_collectionID].collectionMintCost = _collectionMintCost;
         collectionPhases[_collectionID].collectionEndMintCost = _collectionEndMintCost;
         collectionPhases[_collectionID].rate = _rate;
         collectionPhases[_collectionID].timePeriod = _timePeriod;
         collectionPhases[_collectionID].salesOption = _salesOption;
+        collectionPhases[_collectionID].delAddress = _delAddress;
         setMintingCosts[_collectionID] = true;
     }
 
@@ -208,7 +206,7 @@ contract NextGenMinterContract is Ownable {
                 bool isAllowedToMint;
                 isAllowedToMint = dmc.retrieveGlobalStatusOfDelegation(_delegator, 0x8888888888888888888888888888888888888888, msg.sender, 1) || dmc.retrieveGlobalStatusOfDelegation(_delegator, 0x8888888888888888888888888888888888888888, msg.sender, 2);
                 if (isAllowedToMint == false) {
-                isAllowedToMint = dmc.retrieveGlobalStatusOfDelegation(_delegator, alMintDelegationCol, msg.sender, 1) || dmc.retrieveGlobalStatusOfDelegation(_delegator, alMintDelegationCol, msg.sender, 2);    
+                isAllowedToMint = dmc.retrieveGlobalStatusOfDelegation(_delegator, collectionPhases[col].delAddress, msg.sender, 1) || dmc.retrieveGlobalStatusOfDelegation(_delegator, collectionPhases[col].delAddress, msg.sender, 2);    
                 }
                 require(isAllowedToMint == true, "No delegation");
                 node = keccak256(abi.encodePacked(_delegator, _maxAllowance, tokData));
@@ -301,8 +299,8 @@ contract NextGenMinterContract is Ownable {
 
     // function to update allowlist mint delegation collection
 
-    function updateALCol(address _collectionAddress) public FunctionAdminRequired(this.updateALCol.selector) { 
-        alMintDelegationCol = _collectionAddress;
+    function updateDelegationCollection(uint256 _collectionID, address _collectionAddress) public FunctionAdminRequired(this.updateDelegationCollection.selector) { 
+        collectionPhases[_collectionID].delAddress = _collectionAddress;
     }
 
     // function to initialize burn to mint for NextGen collections
@@ -499,8 +497,8 @@ contract NextGenMinterContract is Ownable {
 
     // function to retrieve the minting details of a collection
 
-    function retrieveCollectionMintingDetails(uint256 _collectionID) public view returns(uint256, uint256, uint256, uint256, uint8){
-        return (collectionPhases[_collectionID].collectionMintCost, collectionPhases[_collectionID].collectionEndMintCost, collectionPhases[_collectionID].rate, collectionPhases[_collectionID].timePeriod, collectionPhases[_collectionID].salesOption);
+    function retrieveCollectionMintingDetails(uint256 _collectionID) public view returns(uint256, uint256, uint256, uint256, uint8, address){
+        return (collectionPhases[_collectionID].collectionMintCost, collectionPhases[_collectionID].collectionEndMintCost, collectionPhases[_collectionID].rate, collectionPhases[_collectionID].timePeriod, collectionPhases[_collectionID].salesOption, collectionPhases[_collectionID].delAddress);
     }
 
     // get minter contract status
