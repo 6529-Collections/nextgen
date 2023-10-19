@@ -3,8 +3,8 @@
 /**
  *
  *  @title: NextGen Smart Contract
- *  @date: 18-October-2023 
- *  @version: 10.27
+ *  @date: 19-October-2023 
+ *  @version: 10.28
  *  @author: 6529 team
  */
 
@@ -17,8 +17,9 @@ import "./Base64.sol";
 import "./IRandomizer.sol";
 import "./INextGenAdmins.sol";
 import "./IMinterContract.sol";
+import "./ERC2981.sol";
 
-contract NextGenCore is ERC721Enumerable, Ownable {
+contract NextGenCore is ERC721Enumerable, Ownable, ERC2981 {
     using Strings for uint256;
 
     // declare variables
@@ -67,7 +68,7 @@ contract NextGenCore is ERC721Enumerable, Ownable {
     mapping (uint256 => uint256) private tokenIdsToCollectionIds;
 
     // stores randomizer hash
-    mapping(uint256 => bytes32) public tokenToHash;
+    mapping(uint256 => bytes32) private tokenToHash;
 
     // minted tokens per address per collection during public sale
     mapping (uint256 => mapping (address => uint256)) private tokensMintedPerAddress;
@@ -91,7 +92,7 @@ contract NextGenCore is ERC721Enumerable, Ownable {
     mapping (uint256 => string) public tokenData;
 
     // on-chain token Image URI and attributes
-    mapping (uint256 => string[2]) public tokenImageAndAttributes;
+    mapping (uint256 => string[2]) private tokenImageAndAttributes;
 
     // collectionFreeze 
     mapping (uint256 => bool) private collectionFreeze;
@@ -107,6 +108,7 @@ contract NextGenCore is ERC721Enumerable, Ownable {
     constructor(string memory name, string memory symbol, address _adminsContract) ERC721(name, symbol) {
         adminsContract = INextGenAdmins(_adminsContract);
         newCollectionIndex = newCollectionIndex + 1;
+        _setDefaultRoyalty(0x1B1289E34Fe05019511d7b436a5138F361904df0, 690);
     }
 
     // certain functions can only be called by a global or function admin
@@ -233,22 +235,21 @@ contract NextGenCore is ERC721Enumerable, Ownable {
 
     // function to update Collection Info
 
-    function updateCollectionInfo(uint256 _collectionID, string memory _newCollectionName, string memory _newCollectionArtist, string memory _newCollectionDescription, string memory _newCollectionWebsite, string memory _newCollectionLicense, string memory _newCollectionLibrary, string[] memory _newCollectionScript) public CollectionAdminRequired(_collectionID, this.updateCollectionInfo.selector) {
+    function updateCollectionInfo(uint256 _collectionID, string memory _newCollectionName, string memory _newCollectionArtist, string memory _newCollectionDescription, string memory _newCollectionWebsite, string memory _newCollectionLicense, string memory _newCollectionBaseURI, string memory _newCollectionLibrary, uint256 _index, string[] memory _newCollectionScript) public CollectionAdminRequired(_collectionID, this.updateCollectionInfo.selector) {
         require((isCollectionCreated[_collectionID] == true) && (collectionFreeze[_collectionID] == false), "Not allowed");
-        collectionInfo[_collectionID].collectionName = _newCollectionName;
-        collectionInfo[_collectionID].collectionArtist = _newCollectionArtist;
-        collectionInfo[_collectionID].collectionDescription = _newCollectionDescription;
-        collectionInfo[_collectionID].collectionWebsite = _newCollectionWebsite;
-        collectionInfo[_collectionID].collectionLicense = _newCollectionLicense;
-        collectionInfo[_collectionID].collectionLibrary = _newCollectionLibrary;
-        collectionInfo[_collectionID].collectionScript = _newCollectionScript;
-    }
-
-    // function to update Collection Script By Index
-
-    function updateCollectionScriptByIndex(uint256 _collectionID, uint256 _index, string memory _newCollectionIndexScript) public CollectionAdminRequired(_collectionID, this.updateCollectionScriptByIndex.selector) {
-        require((isCollectionCreated[_collectionID] == true) && (collectionFreeze[_collectionID] == false), "Not allowed");
-        collectionInfo[_collectionID].collectionScript[_index] = _newCollectionIndexScript;
+         if (_index == 1000) {
+            collectionInfo[_collectionID].collectionName = _newCollectionName;
+            collectionInfo[_collectionID].collectionArtist = _newCollectionArtist;
+            collectionInfo[_collectionID].collectionDescription = _newCollectionDescription;
+            collectionInfo[_collectionID].collectionWebsite = _newCollectionWebsite;
+            collectionInfo[_collectionID].collectionLicense = _newCollectionLicense;
+            collectionInfo[_collectionID].collectionLibrary = _newCollectionLibrary;
+            collectionInfo[_collectionID].collectionScript = _newCollectionScript;
+        } else if (_index == 999) {
+            collectionInfo[_collectionID].collectionBaseURI = _newCollectionBaseURI;
+        } else {
+            collectionInfo[_collectionID].collectionScript[_index] = _newCollectionScript[0];
+        }
     }
 
     // function for artist signature
@@ -275,17 +276,10 @@ contract NextGenCore is ERC721Enumerable, Ownable {
         tokenData[_tokenId] = newData;
     }
 
-    // function to update the baseuri
-
-    function updateBaseURI(uint256 _collectionID, string memory _newCollectionBaseURI) public CollectionAdminRequired(_collectionID, this.updateBaseURI.selector) {
-        require((isCollectionCreated[_collectionID] == true) && (collectionFreeze[_collectionID] == false), "Not allowed");
-        collectionInfo[_collectionID].collectionBaseURI = _newCollectionBaseURI;
-    }
-
     // function to add a thumbnail image
 
     function updateImagesAndAttributes(uint256[] memory _tokenId, string[] memory _images, string[] memory _attributes) public FunctionAdminRequired(this.updateImagesAndAttributes.selector) {
-        for (uint256 x; x<_tokenId.length; x++) {
+        for (uint256 x; x < _tokenId.length; x++) {
             require(collectionFreeze[tokenIdsToCollectionIds[_tokenId[x]]] == false, "Data frozen");
             _requireMinted(_tokenId[x]);
             tokenImageAndAttributes[_tokenId[x]][0] = _images[x];
@@ -330,7 +324,19 @@ contract NextGenCore is ERC721Enumerable, Ownable {
         adminsContract = INextGenAdmins(_newadminsContract);
     }
 
+    // function to update default royalties
+    
+    function setDefaultRoyalties(address _royaltyAddress, uint96 _bps) public FunctionAdminRequired(this.setDefaultRoyalties.selector) {
+        _setDefaultRoyalty(_royaltyAddress, _bps);
+    }
+
     // Retrieve Functions
+
+    // function to override supportInterface
+
+    function supportsInterface(bytes4 interfaceId) public view virtual override(ERC721Enumerable, ERC2981) returns (bool) { 
+        return super.supportsInterface(interfaceId); 
+    }
 
     // function to return the tokenURI
 
@@ -448,7 +454,7 @@ contract NextGenCore is ERC721Enumerable, Ownable {
             scripttext = string(abi.encodePacked(scripttext, collectionInfo[tokenIdsToCollectionIds[tokenId]].collectionScript[i])); 
         }
         return string(abi.encodePacked("let hash='",Strings.toHexString(uint256(tokenToHash[tokenId]), 32),"';let tokenId=",tokenId.toString(),";let tokenData=[",tokenData[tokenId],"];", scripttext));
-        }
+    }
 
     // function to retrieve the supply of a collection
 

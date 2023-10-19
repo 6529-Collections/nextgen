@@ -18,7 +18,7 @@ import "./INextGenCore.sol";
 contract NextGenRandomizerNXT {
 
     IXRandoms public randoms;
-    INextGenAdmins public adminsContract;
+    INextGenAdmins private adminsContract;
     INextGenCore public gencoreContract;
     address gencore;
 
@@ -44,6 +44,11 @@ contract NextGenRandomizerNXT {
 
     function updateAdminsContract(address _admin) public FunctionAdminRequired(this.updateAdminsContract.selector) {
         adminsContract = INextGenAdmins(_admin);
+    }
+
+    function updateCoreContract(address _gencore) public FunctionAdminRequired(this.updateCoreContract.selector) { 
+        gencore = _gencore;
+        gencoreContract = INextGenCore(_gencore);
     }
 
     // function that calculates the random hash and returns it to the gencore contract

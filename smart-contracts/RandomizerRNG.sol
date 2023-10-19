@@ -56,11 +56,16 @@ contract NextGenRandomizerRNG is ArrngConsumer, Ownable {
         requestRandomWords(_mintIndex, ethRequired);
     }
 
-    // function to update admin contract
+    // function to update contracts
 
     function updateAdminContract(address _newadminsContract) public FunctionAdminRequired(this.updateAdminContract.selector) {
         require(INextGenAdmins(_newadminsContract).isAdminContract() == true, "Contract is not Admin");
         adminsContract = INextGenAdmins(_newadminsContract);
+    }
+
+    function updateCoreContract(address _gencore) public FunctionAdminRequired(this.updateCoreContract.selector) { 
+        gencore = _gencore;
+        gencoreContract = INextGenCore(_gencore);
     }
 
     // function to update cost
