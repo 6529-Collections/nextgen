@@ -8,30 +8,32 @@ const fixturesDeployment = async () => {
   const addr2 = signersList[2]
   const addr3 = signersList[3]
 
-  const randoms = await ethers.getContractFactory("randomText")
+  const delegation = await ethers.getContractFactory(
+    "DelegationManagementContract",
+  )
+  const hhDelegation = await delegation.deploy()
+
+  const randoms = await ethers.getContractFactory("randomPool")
   const hhRandoms = await randoms.deploy()
 
   const nextGenAdmins = await ethers.getContractFactory("NextGenAdmins")
   const hhAdmin = await nextGenAdmins.deploy()
 
-  const randomizer = await ethers.getContractFactory("NextGenRandomizer")
-  const hhRandomizer = await randomizer.deploy(
-    await hhRandoms.getAddress(),
-    await hhAdmin.getAddress(),
-  )
-
   const nextGenCore = await ethers.getContractFactory("NextGenCore")
   const hhCore = await nextGenCore.deploy(
     "Next Gen Core",
     "NEXTGEN",
-    await hhRandomizer.getAddress(),
     await hhAdmin.getAddress(),
   )
 
-  const delegation = await ethers.getContractFactory(
-    "DelegationManagementContract",
+  // This example uses the NXT Randomizer
+
+  const randomizer = await ethers.getContractFactory("NextGenRandomizerNXT")
+  const hhRandomizer = await randomizer.deploy(
+    await hhRandoms.getAddress(),
+    await hhAdmin.getAddress(),
+    await hhCore.getAddress()
   )
-  const hhDelegation = await delegation.deploy()
 
   const nextGenMinter = await ethers.getContractFactory("NextGenMinterContract")
   const hhMinter = await nextGenMinter.deploy(
