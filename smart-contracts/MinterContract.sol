@@ -12,10 +12,10 @@ pragma solidity ^0.8.19;
 
 import "./INextGenCore.sol";
 import "./Ownable.sol";
-import "./IDelegationManagementContract.sol";
 import "./MerkleProof.sol";
 import "./INextGenAdmins.sol";
 import "./IERC721.sol";
+import {IEPSDelegationRegister} from "./IEPSDelegationRegister.sol";
 
 contract NextGenMinterContract is Ownable{
 
@@ -109,7 +109,7 @@ contract NextGenMinterContract is Ownable{
 
     //external contracts declaration
     INextGenCore public gencore;
-    IDelegationManagementContract public dmc;
+    IEPSDelegationRegister public dmc;
     INextGenAdmins public adminsContract;
 
     // other 
@@ -119,7 +119,7 @@ contract NextGenMinterContract is Ownable{
     // constructor
     constructor (address _gencore, address _del, address _adminsContract) {
         gencore = INextGenCore(_gencore);
-        dmc = IDelegationManagementContract(_del);
+        dmc = IEPSDelegationRegister(_del);
         adminsContract = INextGenAdmins(_adminsContract);
         alMintDelegationCol = 0x33FD426905F149f8376e227d0C9D3340AaD17aF1;
     }
@@ -194,12 +194,26 @@ contract NextGenMinterContract is Ownable{
             phase = 1;
             bytes32 node;
             if (_delegator != 0x0000000000000000000000000000000000000000) {
-                bool isAllowedToMint;
-                isAllowedToMint = dmc.retrieveGlobalStatusOfDelegation(_delegator, 0x8888888888888888888888888888888888888888, msg.sender, 1) || dmc.retrieveGlobalStatusOfDelegation(_delegator, 0x8888888888888888888888888888888888888888, msg.sender, 2);
-                if (isAllowedToMint == false) {
-                isAllowedToMint = dmc.retrieveGlobalStatusOfDelegation(_delegator, alMintDelegationCol, msg.sender, 1) || dmc.retrieveGlobalStatusOfDelegation(_delegator, alMintDelegationCol, msg.sender, 2);    
-                }
-                require(isAllowedToMint == true, "No delegation");
+                // The existing six lines with four contract calls can be replaced with one line making a single contract call.
+                // The delegation register will traverse the levels for you, checking for valid global (all collection) or collection
+                // specific delegations. It also recognises that a usage type of 3 should be included as valid within the context of
+                // an all usage delegation (type 1). There is no need to call it multiple times.
+                // The arguments on this call are:
+                // 1) The hot address (msg.sender)
+                // 2) The cold address (_delegator)
+                // 3) The collection (alMintDelegationCol) As noted above, the delegation contract will return true for either a 
+                //    global delegation or matching collection delegation
+                // 4) Usage - I have 3 as minting. 1 is "All" same as you, but I moved subdelegate from 14 to 2, as it seemed odd
+                //    to have it stuck out at 14 given how important it was. 
+                // 5) If secondary delegations (i.e. non-unique) are included. Uniqueness class is one of many USPs of this delegation contract
+                // 6) If rental delegations are included. Rentals are unique (same as primary) but can be filtered if required.
+                require(dmc.isValidDelegation(msg.sender, _delegator, alMintDelegationCol, 3, true, true), "No delegation");
+                // bool isAllowedToMint;
+                // isAllowedToMint = dmc.retrieveGlobalStatusOfDelegation(_delegator, 0x8888888888888888888888888888888888888888, msg.sender, 1) || dmc.retrieveGlobalStatusOfDelegation(_delegator, 0x8888888888888888888888888888888888888888, msg.sender, 2);
+                // if (isAllowedToMint == false) {
+                // isAllowedToMint = dmc.retrieveGlobalStatusOfDelegation(_delegator, alMintDelegationCol, msg.sender, 1) || dmc.retrieveGlobalStatusOfDelegation(_delegator, alMintDelegationCol, msg.sender, 2);    
+                // }
+                // require(isAllowedToMint == true, "No delegation");
                 node = keccak256(abi.encodePacked(_delegator, _maxAllowance, tokData));
                 require(_maxAllowance >= gencore.retrieveTokensMintedALPerAddress(col, _delegator) + _numberOfTokens, "AL limit");
                 mintingAddress = _delegator;
@@ -294,12 +308,13 @@ contract NextGenMinterContract is Ownable{
         require(setMintingCosts[_mintCollectionID] == true, "Set Minting Costs");
         address ownerOfToken = IERC721(_erc721Collection).ownerOf(_tokenId);
         if (msg.sender != ownerOfToken) {
-            bool isAllowedToMint;
-            isAllowedToMint = dmc.retrieveGlobalStatusOfDelegation(ownerOfToken, 0x8888888888888888888888888888888888888888, msg.sender, 1) || dmc.retrieveGlobalStatusOfDelegation(ownerOfToken, 0x8888888888888888888888888888888888888888, msg.sender, 2);
-            if (isAllowedToMint == false) {
-            isAllowedToMint = dmc.retrieveGlobalStatusOfDelegation(ownerOfToken, _erc721Collection, msg.sender, 1) || dmc.retrieveGlobalStatusOfDelegation(ownerOfToken, _erc721Collection, msg.sender, 2);    
-            }
-            require(isAllowedToMint == true, "No delegation");
+            require(dmc.isValidDelegation(msg.sender, ownerOfToken, _erc721Collection, 3, true, true), "No delegation");
+            // bool isAllowedToMint;
+            // isAllowedToMint = dmc.retrieveGlobalStatusOfDelegation(ownerOfToken, 0x8888888888888888888888888888888888888888, msg.sender, 1) || dmc.retrieveGlobalStatusOfDelegation(ownerOfToken, 0x8888888888888888888888888888888888888888, msg.sender, 2);
+            // if (isAllowedToMint == false) {
+            // isAllowedToMint = dmc.retrieveGlobalStatusOfDelegation(ownerOfToken, _erc721Collection, msg.sender, 1) || dmc.retrieveGlobalStatusOfDelegation(ownerOfToken, _erc721Collection, msg.sender, 2);    
+            // }
+            // require(isAllowedToMint == true, "No delegation");
         }
         require(_tokenId >= burnOrSwapIds[externalCol][0] && _tokenId <= burnOrSwapIds[externalCol][1], "Token id does not match");
         IERC721(_erc721Collection).safeTransferFrom(ownerOfToken, burnOrSwapAddress[externalCol], _tokenId);
