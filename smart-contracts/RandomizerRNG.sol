@@ -3,19 +3,18 @@
 /**
  *
  *  @title: NextGen Randomizer Contract RNG
- *  @date: 18-October-2023
- *  @version: 1.7
+ *  @date: 29-November-2023
+ *  @version: 1.8
  *  @author: 6529 team
  */
 
 pragma solidity ^0.8.19;
 
 import "./ArrngConsumer.sol";
-import "./Ownable.sol";
 import "./INextGenCore.sol";
 import "./INextGenAdmins.sol";
 
-contract NextGenRandomizerRNG is ArrngConsumer, Ownable {
+contract NextGenRandomizerRNG is ArrngConsumer {
 
     mapping(uint256 => uint256) public requestToToken;
     address gencore;
@@ -46,7 +45,7 @@ contract NextGenRandomizerRNG is ArrngConsumer, Ownable {
     }
 
     function fulfillRandomWords(uint256 id, uint256[] memory numbers) internal override {
-        gencoreContract.setTokenHash(tokenIdToCollection[requestToToken[id]], requestToToken[id], bytes32(abi.encodePacked(numbers,requestToToken[id])));
+        gencoreContract.setTokenHash(tokenIdToCollection[requestToToken[id]], requestToToken[id], keccak256(abi.encodePacked(numbers,requestToToken[id])));
     }
 
     // function that calculates the random hash and returns it to the gencore contract
@@ -80,6 +79,7 @@ contract NextGenRandomizerRNG is ArrngConsumer, Ownable {
         uint balance = address(this).balance;
         address admin = adminsContract.owner();
         (bool success, ) = payable(admin).call{value: balance}("");
+        require(success, "ETH failed");
         emit Withdraw(msg.sender, success, balance);
     }
 

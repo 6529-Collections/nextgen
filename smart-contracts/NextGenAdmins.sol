@@ -12,7 +12,7 @@ pragma solidity ^0.8.19;
 
 import "./Ownable.sol";
 
-contract NextGenAdmins is Ownable{
+contract NextGenAdmins is Ownable {
 
     // sets global admins
     mapping(address => bool) public adminPermissions;
