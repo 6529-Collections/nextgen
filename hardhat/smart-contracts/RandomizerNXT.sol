@@ -3,8 +3,8 @@
 /**
  *
  *  @title: NextGen Randomizer Contract
- *  @date: 18-October-2023 
- *  @version: 1.4
+ *  @date: 29-November-2023
+ *  @version: 1.5
  *  @author: 6529 team
  */
 
@@ -12,7 +12,6 @@ pragma solidity ^0.8.19;
 
 import "./IXRandoms.sol";
 import "./INextGenAdmins.sol";
-import "./Ownable.sol";
 import "./INextGenCore.sol";
 
 contract NextGenRandomizerNXT {
@@ -42,8 +41,9 @@ contract NextGenRandomizerNXT {
         randoms = IXRandoms(_randoms);
     }
 
-    function updateAdminsContract(address _admin) public FunctionAdminRequired(this.updateAdminsContract.selector) {
-        adminsContract = INextGenAdmins(_admin);
+    function updateAdminContract(address _newadminsContract) public FunctionAdminRequired(this.updateAdminContract.selector) {
+        require(INextGenAdmins(_newadminsContract).isAdminContract() == true, "Contract is not Admin");
+        adminsContract = INextGenAdmins(_newadminsContract);
     }
 
     function updateCoreContract(address _gencore) public FunctionAdminRequired(this.updateCoreContract.selector) { 

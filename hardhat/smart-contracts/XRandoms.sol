@@ -3,8 +3,8 @@
 /**
  *
  *  @title: NextGen Word Pool
- *  @date: 09-October-2023 
- *  @version: 1.1
+ *  @date: ??-November-2023 
+ *  @version: 1.2
  *  @author: 6529 team
  */
 
@@ -25,12 +25,9 @@ contract randomPool {
         "Soursop", "Star Apple", "Star Fruit", "Strawberry", "Sugar Apple", "Tamarillo", "Tamarind", "Tangelo", "Tangerine", "Ugli", "Velvet Apple", "Watermelon"];
 
         // returns a word based on index
-        if (id==0) {
-            return wordsList[id];
-        } else {
-            return wordsList[id - 1];
-        }
-        }
+        return wordsList[id];
+
+    }
 
     function randomNumber() public view returns (uint256){
         uint256 randomNum = uint(keccak256(abi.encodePacked(block.prevrandao, blockhash(block.number - 1), block.timestamp))) % 1000;

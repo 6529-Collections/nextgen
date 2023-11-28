@@ -15,5 +15,10 @@ interface IMinterContract {
 
     // retrieve auction status
     function getAuctionStatus(uint256 _tokenId) external view  returns (bool);
+
+    // retrieve primary addresses
+    function retrievePrimaryAddressesAndPercentages(uint256 _collectionID) external view returns(address, address, address, uint256, uint256, uint256, bool);
     
+    // retrieve secondary addresses
+    function retrieveSecondaryAddressesAndPercentages(uint256 _collectionID) external view returns(address, address, address, uint256, uint256, uint256, bool);
 }

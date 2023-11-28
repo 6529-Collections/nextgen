@@ -2,9 +2,9 @@
 
 /**
  *
- *  @title: Auction Demo Contract
- *  @date: 26-October-2023 
- *  @version: 1.2
+ *  @title: Auction Contract
+ *  @date: 29-November-2023 
+ *  @version: 1.3
  *  @author: 6529 team
  */
 
@@ -12,20 +12,28 @@ pragma solidity ^0.8.19;
 
 import "./IMinterContract.sol";
 import "./IERC721.sol";
-import "./Ownable.sol";
 import "./INextGenAdmins.sol";
 
-contract auctionDemo is Ownable {
+contract auctionDemo {
 
     //events 
 
     event ClaimAuction(address indexed _add, uint256 indexed tokenid, bool status, uint256 indexed funds);
     event Refund(address indexed _add, uint256 indexed tokenid, bool status, uint256 indexed funds);
     event CancelBid(address indexed _add, uint256 indexed tokenid, uint256 index, bool status, uint256 indexed funds);
+    event Withdraw(address indexed _add, bool status, uint256 indexed funds);
 
-    IMinterContract public minter;
+    IMinterContract public minterContract;
     INextGenAdmins public adminsContract;
     address gencore;
+    uint256 public startingBid;
+
+    // certain functions can only be called by a global or function admin
+
+    modifier FunctionAdminRequired(bytes4 _selector) {
+      require(adminsContract.retrieveFunctionAdmin(msg.sender, _selector) == true || adminsContract.retrieveGlobalAdmin(msg.sender) == true , "Not allowed");
+      _;
+    }
 
     // certain functions can only be called by auction winner or admin
     modifier WinnerOrAdminRequired(uint256 _tokenId, bytes4 _selector) {
@@ -33,10 +41,11 @@ contract auctionDemo is Ownable {
       _;
     }
 
-    constructor (address _minter, address _gencore, address _adminsContract) public {
-        minter = IMinterContract(_minter);
+    constructor (address _minterContract, address _gencore, address _adminsContract, uint256 _startingBid) public {
+        minterContract = IMinterContract(_minterContract);
         gencore = _gencore;
         adminsContract = INextGenAdmins(_adminsContract);
+        startingBid = _startingBid;
     }
 
     // auction Bidders
@@ -44,20 +53,148 @@ contract auctionDemo is Ownable {
         address bidder;
         uint256 bid;
         bool status;
+        bool refunded;
     }
 
-    // mapping of collectionSecondaryAddresses struct
+    // mapping of auction info per token id
     mapping (uint256 => auctionInfoStru[]) public auctionInfoData;
+
+    // mapping of no of bids per token id
+    mapping (uint256 => uint256) public noOfBids;
 
     // claim auctioned
     mapping (uint256 => bool) public auctionClaim;
 
+    // auction error
+    mapping (uint256 => bool) public auctionError;
+
+    // mapping of auction info per token id
+    mapping (uint256 => mapping (address => uint256)) public bidsPerAddress;
+
     // participate to auction
 
     function participateToAuction(uint256 _tokenid) public payable {
-        require(msg.value > returnHighestBid(_tokenid) && block.timestamp <= minter.getAuctionEndTime(_tokenid) && minter.getAuctionStatus(_tokenid) == true);
-        auctionInfoStru memory newBid = auctionInfoStru(msg.sender, msg.value, true);
+        uint256 bid;
+        if (noOfBids[_tokenid] == 0) {
+            bid = startingBid;
+        } else {
+            bid = returnHighestBid(_tokenid);
+        }
+        require(msg.value > bid && block.timestamp <= minterContract.getAuctionEndTime(_tokenid) && minterContract.getAuctionStatus(_tokenid) == true);
+        auctionInfoStru memory newBid = auctionInfoStru(msg.sender, msg.value, true, false);
         auctionInfoData[_tokenid].push(newBid);
+        bidsPerAddress[_tokenid][msg.sender] = bidsPerAddress[_tokenid][msg.sender] + msg.value;
+        noOfBids[_tokenid] = noOfBids[_tokenid] + 1;
+    }
+
+    // claim after enf of auction Auction (winner or admin)
+
+    function claimAuction(uint256 _tokenid) public WinnerOrAdminRequired(_tokenid, this.claimAuction.selector) {
+        require(block.timestamp > minterContract.getAuctionEndTime(_tokenid) && auctionClaim[_tokenid] == false);
+        require(auctionError[_tokenid] == false);
+        auctionClaim[_tokenid] = true;
+        uint256 highestBid = returnHighestBid(_tokenid);
+        address ownerOfToken = IERC721(gencore).ownerOf(_tokenid);
+        address highestBidder = returnHighestBidder(_tokenid);
+        for (uint256 i=0; i< auctionInfoData[_tokenid].length; i++) {
+            if (auctionInfoData[_tokenid][i].bidder == highestBidder && auctionInfoData[_tokenid][i].bid == highestBid && auctionInfoData[_tokenid][i].status == true) {
+                IERC721(gencore).safeTransferFrom(ownerOfToken, highestBidder, _tokenid);
+                (bool success, ) = payable(ownerOfToken).call{value: highestBid}("");
+                require(success, "ETH failed");
+                emit ClaimAuction(ownerOfToken, _tokenid, success, highestBid);
+            } else if (auctionInfoData[_tokenid][i].status == true && auctionInfoData[_tokenid][i].refunded == false) {
+                auctionInfoData[_tokenid][i].refunded = true;
+                bidsPerAddress[_tokenid][auctionInfoData[_tokenid][i].bidder] = bidsPerAddress[_tokenid][auctionInfoData[_tokenid][i].bidder] - auctionInfoData[_tokenid][i].bid;
+                (bool success, ) = payable(auctionInfoData[_tokenid][i].bidder).call{value: auctionInfoData[_tokenid][i].bid}("");
+                require(success, "ETH failed");
+                emit Refund(auctionInfoData[_tokenid][i].bidder, _tokenid, success, highestBid);
+            }
+        }
+    }
+
+    // claim using small indices (admin only)
+
+    function claimAuctionAdmin(uint256 _tokenid, uint256 _startIndex, uint256 _endIndex, uint256 _highBid, address _highBidder) public FunctionAdminRequired(this.claimAuctionAdmin.selector){
+        require(block.timestamp > minterContract.getAuctionEndTime(_tokenid) && auctionClaim[_tokenid] == false && minterContract.getAuctionStatus(_tokenid) == true);
+        auctionError[_tokenid] = true;
+        uint256 highestBid = _highBid;
+        address ownerOfToken = IERC721(gencore).ownerOf(_tokenid);
+        address highestBidder = _highBidder;
+        for (uint256 i=_startIndex; i <= _endIndex; i ++) {
+            if (auctionInfoData[_tokenid][i].bidder == highestBidder && auctionInfoData[_tokenid][i].bid == highestBid && auctionInfoData[_tokenid][i].status == true) {
+                IERC721(gencore).safeTransferFrom(ownerOfToken, highestBidder, _tokenid);
+                (bool success, ) = payable(ownerOfToken).call{value: highestBid}("");
+                require(success, "ETH failed");
+                emit ClaimAuction(ownerOfToken, _tokenid, success, highestBid);
+            } else if (auctionInfoData[_tokenid][i].status == true && auctionInfoData[_tokenid][i].refunded == false) {
+                auctionInfoData[_tokenid][i].refunded = true;
+                bidsPerAddress[_tokenid][auctionInfoData[_tokenid][i].bidder] = bidsPerAddress[_tokenid][auctionInfoData[_tokenid][i].bidder] - auctionInfoData[_tokenid][i].bid;
+                (bool success, ) = payable(auctionInfoData[_tokenid][i].bidder).call{value: auctionInfoData[_tokenid][i].bid}("");
+                require(success, "ETH failed");
+                emit Refund(auctionInfoData[_tokenid][i].bidder, _tokenid, success, highestBid);
+            }
+        }
+    }
+
+    // cancel a single Bid
+
+    function cancelBid(uint256 _tokenid, uint256 index) public {
+        require(block.timestamp <= minterContract.getAuctionEndTime(_tokenid), "Auction ended");
+        require(bidsPerAddress[_tokenid][msg.sender] > 0);
+        require(auctionInfoData[_tokenid][index].bidder == msg.sender && auctionInfoData[_tokenid][index].status == true);
+        auctionInfoData[_tokenid][index].status = false;
+        auctionInfoData[_tokenid][index].refunded = true;
+        bidsPerAddress[_tokenid][msg.sender] = bidsPerAddress[_tokenid][msg.sender] - auctionInfoData[_tokenid][index].bid;
+        (bool success, ) = payable(auctionInfoData[_tokenid][index].bidder).call{value: auctionInfoData[_tokenid][index].bid}("");
+        require(success, "ETH failed");
+        emit CancelBid(msg.sender, _tokenid, index, success, auctionInfoData[_tokenid][index].bid);
+    }
+
+    // cancel All Bids
+
+    function cancelAllBids(uint256 _tokenid) public {
+        require(block.timestamp <= minterContract.getAuctionEndTime(_tokenid), "Auction ended");
+        require(bidsPerAddress[_tokenid][msg.sender] > 0);
+        for (uint256 i=0; i < auctionInfoData[_tokenid].length; i++) {
+            if (auctionInfoData[_tokenid][i].bidder == msg.sender && auctionInfoData[_tokenid][i].status == true) {
+                auctionInfoData[_tokenid][i].status = false;
+                auctionInfoData[_tokenid][i].refunded = true;
+                bidsPerAddress[_tokenid][msg.sender] = bidsPerAddress[_tokenid][msg.sender] - auctionInfoData[_tokenid][i].bid;
+                (bool success, ) = payable(auctionInfoData[_tokenid][i].bidder).call{value: auctionInfoData[_tokenid][i].bid}("");
+                require(success, "ETH failed");
+                emit CancelBid(msg.sender, _tokenid, i, success, auctionInfoData[_tokenid][i].bid);
+            }
+        }
+    }
+
+    // function to update starting bid
+
+    function updateStartingBid(uint256 _startingBid) public FunctionAdminRequired(this.updateStartingBid.selector) {
+        startingBid = _startingBid;
+    }
+
+    // function to add a minter contract
+
+    function addMinterContract(address _minterContract) public FunctionAdminRequired(this.addMinterContract.selector) { 
+        require(IMinterContract(_minterContract).isMinterContract() == true, "Contract is not Minter");
+        minterContract = IMinterContract(_minterContract);
+    }
+
+    // function to update admin contract
+
+    function updateAdminContract(address _newadminsContract) public FunctionAdminRequired(this.updateAdminContract.selector) {
+        require(INextGenAdmins(_newadminsContract).isAdminContract() == true, "Contract is not Admin");
+        adminsContract = INextGenAdmins(_newadminsContract);
+    }
+
+    // function to withdraw any balance from the smart contract
+
+    function emergencyWithdraw() public FunctionAdminRequired(this.emergencyWithdraw.selector) {
+        uint balance = address(this).balance;
+        address admin = adminsContract.owner();
+        (bool success, ) = payable(admin).call{value: balance}("");
+        require(success, "ETH failed");
+        emit Withdraw(msg.sender, success, balance);
     }
 
     // get highest bid
@@ -89,6 +226,7 @@ contract auctionDemo is Ownable {
         uint256 index;
         for (uint256 i=0; i< auctionInfoData[_tokenid].length; i++) {
             if (auctionInfoData[_tokenid][i].bid > highBid && auctionInfoData[_tokenid][i].status == true) {
+                highBid = auctionInfoData[_tokenid][i].bid;
                 index = i;
             }
         }
@@ -99,50 +237,10 @@ contract auctionDemo is Ownable {
         }
     }
 
-    // claim Token After Auction
-
-    function claimAuction(uint256 _tokenid) public WinnerOrAdminRequired(_tokenid,this.claimAuction.selector){
-        require(block.timestamp >= minter.getAuctionEndTime(_tokenid) && auctionClaim[_tokenid] == false && minter.getAuctionStatus(_tokenid) == true);
-        auctionClaim[_tokenid] = true;
-        uint256 highestBid = returnHighestBid(_tokenid);
-        address ownerOfToken = IERC721(gencore).ownerOf(_tokenid);
-        address highestBidder = returnHighestBidder(_tokenid);
-        for (uint256 i=0; i< auctionInfoData[_tokenid].length; i ++) {
-            if (auctionInfoData[_tokenid][i].bidder == highestBidder && auctionInfoData[_tokenid][i].bid == highestBid && auctionInfoData[_tokenid][i].status == true) {
-                IERC721(gencore).safeTransferFrom(ownerOfToken, highestBidder, _tokenid);
-                (bool success, ) = payable(owner()).call{value: highestBid}("");
-                emit ClaimAuction(owner(), _tokenid, success, highestBid);
-            } else if (auctionInfoData[_tokenid][i].status == true) {
-                (bool success, ) = payable(auctionInfoData[_tokenid][i].bidder).call{value: auctionInfoData[_tokenid][i].bid}("");
-                emit Refund(auctionInfoData[_tokenid][i].bidder, _tokenid, success, highestBid);
-            } else {}
-        }
-    }
-
-    // cancel a single Bid
-
-    function cancelBid(uint256 _tokenid, uint256 index) public {
-        require(block.timestamp <= minter.getAuctionEndTime(_tokenid), "Auction ended");
-        require(auctionInfoData[_tokenid][index].bidder == msg.sender && auctionInfoData[_tokenid][index].status == true);
-        auctionInfoData[_tokenid][index].status = false;
-        (bool success, ) = payable(auctionInfoData[_tokenid][index].bidder).call{value: auctionInfoData[_tokenid][index].bid}("");
-        emit CancelBid(msg.sender, _tokenid, index, success, auctionInfoData[_tokenid][index].bid);
-    }
-
-    // cancel All Bids
-
-    function cancelAllBids(uint256 _tokenid) public {
-        require(block.timestamp <= minter.getAuctionEndTime(_tokenid), "Auction ended");
-        for (uint256 i=0; i<auctionInfoData[_tokenid].length; i++) {
-            if (auctionInfoData[_tokenid][i].bidder == msg.sender && auctionInfoData[_tokenid][i].status == true) {
-                auctionInfoData[_tokenid][i].status = false;
-                (bool success, ) = payable(auctionInfoData[_tokenid][i].bidder).call{value: auctionInfoData[_tokenid][i].bid}("");
-                emit CancelBid(msg.sender, _tokenid, i, success, auctionInfoData[_tokenid][i].bid);
-            } else {}
-        }
-    }
-
     // return Bids
+    // true, false = participated not refunded --> after end of auction winner
+    // false, true = participated and refunded
+    // true, true = participated and refunded
 
     function returnBids(uint256 _tokenid) public view returns(auctionInfoStru[] memory) {
         return auctionInfoData[_tokenid];

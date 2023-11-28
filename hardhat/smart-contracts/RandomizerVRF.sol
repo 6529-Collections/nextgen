@@ -3,8 +3,8 @@
 /**
  *
  *  @title: NextGen Randomizer Contract VRF
- *  @date: 18-October-2023 
- *  @version: 1.8
+ *  @date: 29-November-2023 
+ *  @version: 1.9
  *  @author: 6529 team
  */
 
@@ -12,11 +12,10 @@ pragma solidity ^0.8.19;
 
 import "./VRFCoordinatorV2Interface.sol";
 import "./VRFConsumerBaseV2.sol";
-import "./Ownable.sol";
 import "./INextGenCore.sol";
 import "./INextGenAdmins.sol";
 
-contract NextGenRandomizerVRF is VRFConsumerBaseV2, Ownable {
+contract NextGenRandomizerVRF is VRFConsumerBaseV2 {
     event RequestFulfilled(uint256 requestId, uint256[] randomWords);
 
     VRFCoordinatorV2Interface public COORDINATOR;
@@ -63,7 +62,7 @@ contract NextGenRandomizerVRF is VRFConsumerBaseV2, Ownable {
     }
 
     function fulfillRandomWords(uint256 _requestId, uint256[] memory _randomWords) internal override {
-        gencoreContract.setTokenHash(tokenIdToCollection[requestToToken[_requestId]], requestToToken[_requestId], bytes32(abi.encodePacked(_randomWords,requestToToken[_requestId])));
+        gencoreContract.setTokenHash(tokenIdToCollection[requestToToken[_requestId]], requestToToken[_requestId], keccak256(abi.encodePacked(_randomWords,requestToToken[_requestId])));
         emit RequestFulfilled(_requestId, _randomWords);
     }
 
