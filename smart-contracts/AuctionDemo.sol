@@ -13,8 +13,9 @@ pragma solidity ^0.8.19;
 import "./IMinterContract.sol";
 import "./IERC721.sol";
 import "./INextGenAdmins.sol";
+import "./ReentrancyGuard.sol";
 
-contract auctionDemo {
+contract auctionDemo is ReentrancyGuard {
 
     //events 
 
@@ -89,7 +90,7 @@ contract auctionDemo {
 
     // claim after enf of auction Auction (winner or admin)
 
-    function claimAuction(uint256 _tokenid) public WinnerOrAdminRequired(_tokenid, this.claimAuction.selector) {
+    function claimAuction(uint256 _tokenid) public nonReentrant WinnerOrAdminRequired(_tokenid, this.claimAuction.selector) {
         require(block.timestamp > minterContract.getAuctionEndTime(_tokenid) && auctionClaim[_tokenid] == false);
         require(auctionError[_tokenid] == false);
         auctionClaim[_tokenid] = true;
@@ -138,7 +139,7 @@ contract auctionDemo {
 
     // cancel a single Bid
 
-    function cancelBid(uint256 _tokenid, uint256 index) public {
+    function cancelBid(uint256 _tokenid, uint256 index) public nonReentrant {
         require(block.timestamp <= minterContract.getAuctionEndTime(_tokenid), "Auction ended");
         require(bidsPerAddress[_tokenid][msg.sender] > 0);
         require(auctionInfoData[_tokenid][index].bidder == msg.sender && auctionInfoData[_tokenid][index].status == true);
@@ -152,7 +153,7 @@ contract auctionDemo {
 
     // cancel All Bids
 
-    function cancelAllBids(uint256 _tokenid) public {
+    function cancelAllBids(uint256 _tokenid) public nonReentrant {
         require(block.timestamp <= minterContract.getAuctionEndTime(_tokenid), "Auction ended");
         require(bidsPerAddress[_tokenid][msg.sender] > 0);
         for (uint256 i=0; i < auctionInfoData[_tokenid].length; i++) {
