@@ -15,7 +15,7 @@ import "./IERC721.sol";
 import "./INextGenAdmins.sol";
 import "./ReentrancyGuard.sol";
 
-contract auctionDemo is ReentrancyGuard {
+contract auctionContract is ReentrancyGuard {
 
     //events 
 

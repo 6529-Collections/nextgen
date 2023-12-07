@@ -3,8 +3,8 @@
 /**
  *
  *  @title: Auction Contract
- *  @date: 29-November-2023 
- *  @version: 1.3
+ *  @date: 07-December-2023 
+ *  @version: 1.4
  *  @author: 6529 team
  */
 
@@ -19,6 +19,7 @@ contract auctionContract is ReentrancyGuard {
 
     //events 
 
+    event Participate(address indexed _add, uint256 indexed tokenid, uint256 indexed funds);
     event ClaimAuction(address indexed _add, uint256 indexed tokenid, bool status, uint256 indexed funds);
     event Refund(address indexed _add, uint256 indexed tokenid, bool status, uint256 indexed funds);
     event CancelBid(address indexed _add, uint256 indexed tokenid, uint256 index, bool status, uint256 indexed funds);
@@ -60,9 +61,6 @@ contract auctionContract is ReentrancyGuard {
     // mapping of auction info per token id
     mapping (uint256 => auctionInfoStru[]) public auctionInfoData;
 
-    // mapping of no of bids per token id
-    mapping (uint256 => uint256) public noOfBids;
-
     // claim auctioned
     mapping (uint256 => bool) public auctionClaim;
 
@@ -76,19 +74,24 @@ contract auctionContract is ReentrancyGuard {
 
     function participateToAuction(uint256 _tokenid) public payable {
         uint256 bid;
-        if (noOfBids[_tokenid] == 0) {
+        if (auctionInfoData[_tokenid].length == 0) {
             bid = startingBid;
         } else {
             bid = returnHighestBid(_tokenid);
         }
         require(msg.value > bid && block.timestamp <= minterContract.getAuctionEndTime(_tokenid) && minterContract.getAuctionStatus(_tokenid) == true);
+        // cancel existing bid
+        if (bidsPerAddress[_tokenid][msg.sender] > 0) {
+            cancelBid(_tokenid);
+        }
+        // register the new bid;
+        bidsPerAddress[_tokenid][msg.sender] = bidsPerAddress[_tokenid][msg.sender] + msg.value;
         auctionInfoStru memory newBid = auctionInfoStru(msg.sender, msg.value, true, false);
         auctionInfoData[_tokenid].push(newBid);
-        bidsPerAddress[_tokenid][msg.sender] = bidsPerAddress[_tokenid][msg.sender] + msg.value;
-        noOfBids[_tokenid] = noOfBids[_tokenid] + 1;
+        emit Participate(msg.sender, _tokenid, msg.value);
     }
 
-    // claim after enf of auction Auction (winner or admin)
+    // claim after end of auction Auction (winner or admin)
 
     function claimAuction(uint256 _tokenid) public nonReentrant WinnerOrAdminRequired(_tokenid, this.claimAuction.selector) {
         require(block.timestamp > minterContract.getAuctionEndTime(_tokenid) && auctionClaim[_tokenid] == false);
@@ -137,35 +140,26 @@ contract auctionContract is ReentrancyGuard {
         }
     }
 
-    // cancel a single Bid
+    // cancel Bids
 
-    function cancelBid(uint256 _tokenid, uint256 index) public nonReentrant {
-        require(block.timestamp <= minterContract.getAuctionEndTime(_tokenid), "Auction ended");
-        require(bidsPerAddress[_tokenid][msg.sender] > 0);
-        require(auctionInfoData[_tokenid][index].bidder == msg.sender && auctionInfoData[_tokenid][index].status == true);
-        auctionInfoData[_tokenid][index].status = false;
-        auctionInfoData[_tokenid][index].refunded = true;
-        bidsPerAddress[_tokenid][msg.sender] = bidsPerAddress[_tokenid][msg.sender] - auctionInfoData[_tokenid][index].bid;
-        (bool success, ) = payable(auctionInfoData[_tokenid][index].bidder).call{value: auctionInfoData[_tokenid][index].bid}("");
-        require(success, "ETH failed");
-        emit CancelBid(msg.sender, _tokenid, index, success, auctionInfoData[_tokenid][index].bid);
-    }
-
-    // cancel All Bids
-
-    function cancelAllBids(uint256 _tokenid) public nonReentrant {
+    function cancelBid(uint256 _tokenid) public nonReentrant {
         require(block.timestamp <= minterContract.getAuctionEndTime(_tokenid), "Auction ended");
         require(bidsPerAddress[_tokenid][msg.sender] > 0);
         for (uint256 i=0; i < auctionInfoData[_tokenid].length; i++) {
             if (auctionInfoData[_tokenid][i].bidder == msg.sender && auctionInfoData[_tokenid][i].status == true) {
-                auctionInfoData[_tokenid][i].status = false;
-                auctionInfoData[_tokenid][i].refunded = true;
-                bidsPerAddress[_tokenid][msg.sender] = bidsPerAddress[_tokenid][msg.sender] - auctionInfoData[_tokenid][i].bid;
-                (bool success, ) = payable(auctionInfoData[_tokenid][i].bidder).call{value: auctionInfoData[_tokenid][i].bid}("");
+                uint256 bid = auctionInfoData[_tokenid][i].bid;
+                address bidder = auctionInfoData[_tokenid][i].bidder;
+                uint256 lastBid = auctionInfoData[_tokenid][auctionInfoData[_tokenid].length-1].bid;
+                address lastBidder = auctionInfoData[_tokenid][auctionInfoData[_tokenid].length-1].bidder;
+                auctionInfoData[_tokenid][i].bid = lastBid;
+                auctionInfoData[_tokenid][i].bidder = lastBidder;
+                bidsPerAddress[_tokenid][msg.sender] = bidsPerAddress[_tokenid][msg.sender] - bid;
+                (bool success, ) = payable(bidder).call{value: bid}("");
                 require(success, "ETH failed");
-                emit CancelBid(msg.sender, _tokenid, i, success, auctionInfoData[_tokenid][i].bid);
+                emit CancelBid(msg.sender, _tokenid, i, success, bid);
             }
         }
+        auctionInfoData[_tokenid].pop();
     }
 
     // function to update starting bid
@@ -240,7 +234,6 @@ contract auctionContract is ReentrancyGuard {
 
     // return Bids
     // true, false = participated not refunded --> after end of auction winner
-    // false, true = participated and refunded
     // true, true = participated and refunded
 
     function returnBids(uint256 _tokenid) public view returns(auctionInfoStru[] memory) {

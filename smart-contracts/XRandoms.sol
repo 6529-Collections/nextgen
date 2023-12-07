@@ -3,8 +3,8 @@
 /**
  *
  *  @title: NextGen Word Pool
- *  @date: ??-November-2023 
- *  @version: 1.2
+ *  @date: 29-November-2023 
+ *  @version: 1.3
  *  @author: 6529 team
  */
 
