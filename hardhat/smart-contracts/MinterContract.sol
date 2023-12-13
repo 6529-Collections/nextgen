@@ -3,8 +3,8 @@
 /**
  *
  *  @title: NextGen Minter Contract
- *  @date: 29-November-2023
- *  @version: 1.9
+ *  @date: 11-December-2023
+ *  @version: 1.10
  *  @author: 6529 team
  */
 
@@ -208,11 +208,11 @@ contract NextGenMinterContract {
                 isAllowedToMint = dmc.retrieveGlobalStatusOfDelegation(_delegator, collectionPhases[col].delAddress, msg.sender, 1) || dmc.retrieveGlobalStatusOfDelegation(_delegator, collectionPhases[col].delAddress, msg.sender, 2);    
                 }
                 require(isAllowedToMint == true, "No delegation");
-                node = keccak256(abi.encodePacked(_delegator, _maxAllowance, tokData));
+                node = keccak256(bytes.concat(keccak256((abi.encodePacked(_delegator, _maxAllowance, tokData)))));
                 require(_maxAllowance >= gencore.retrieveTokensMintedALPerAddress(col, _delegator) + _numberOfTokens, "AL limit");
                 mintingAddress = _delegator;
             } else {
-                node = keccak256(abi.encodePacked(msg.sender, _maxAllowance, tokData));
+                node = keccak256(bytes.concat(keccak256((abi.encodePacked(msg.sender, _maxAllowance, tokData)))));
                 require(_maxAllowance >= gencore.retrieveTokensMintedALPerAddress(col, msg.sender) + _numberOfTokens, "AL limit");
                 mintingAddress = msg.sender;
             }
@@ -371,7 +371,7 @@ contract NextGenMinterContract {
         if (block.timestamp >= collectionPhases[col].allowlistStartTime && block.timestamp < collectionPhases[col].allowlistEndTime) {
             phase = 1;
             bytes32 node;
-            node = keccak256(abi.encodePacked(_tokenId, tokData));
+            node = keccak256(bytes.concat(keccak256((abi.encodePacked(_tokenId, tokData)))));
             mintingAddress = ownerOfToken;
             require(MerkleProof.verifyCalldata(merkleProof, collectionPhases[col].merkleRoot, node), 'invalid proof');            
         } else if (block.timestamp >= collectionPhases[col].publicStartTime && block.timestamp <= collectionPhases[col].publicEndTime) {
