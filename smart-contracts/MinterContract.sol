@@ -2,8 +2,8 @@
 
 /**
  *
- *  @title: NextGen Minter Contract
- *  @date: 11-December-2023
+ *  @title: NextGen 6529 - Minter Contract
+ *  @date: 20-December-2023
  *  @version: 1.10
  *  @author: 6529 team
  */

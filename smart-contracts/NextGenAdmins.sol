@@ -2,8 +2,8 @@
 
 /**
  *
- *  @title: NextGen Admin Contract
- *  @date: 26-September-2023 
+ *  @title: NextGen 6529 - Admin Contract
+ *  @date: 20-December-2023
  *  @version: 1.1
  *  @author: 6529 team
  */

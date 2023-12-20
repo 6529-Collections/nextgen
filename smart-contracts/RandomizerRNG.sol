@@ -2,8 +2,8 @@
 
 /**
  *
- *  @title: NextGen Randomizer Contract RNG
- *  @date: 29-November-2023
+ *  @title: NextGen 6529 - RNG Randomizer Contract
+ *  @date: 20-December-2023
  *  @version: 1.8
  *  @author: 6529 team
  */

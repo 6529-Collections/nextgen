@@ -2,8 +2,8 @@
 
 /**
  *
- *  @title: NextGen Randomizer Contract VRF
- *  @date: 29-November-2023 
+ *  @title: NextGen 6529 - VRF Randomizer Contract
+ *  @date: 20-December-2023
  *  @version: 1.9
  *  @author: 6529 team
  */
@@ -22,7 +22,7 @@ contract NextGenRandomizerVRF is VRFConsumerBaseV2 {
 
     // chainlink data
     uint64 s_subscriptionId;
-    bytes32 public keyHash = 0x79d3d8832d904592c0bf9818b621522c988bb8b0c05cdc3b15aea1b6e8db0c15;
+    bytes32 public keyHash = 0x8af398995b04c28e9951adb9721ef74c74f93e6a478f39e7e0777be13527e7ef;
     uint32 public callbackGasLimit = 40000;
     uint16 public requestConfirmations = 3;
     uint32 public numWords = 1;
