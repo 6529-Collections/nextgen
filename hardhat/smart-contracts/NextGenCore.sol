@@ -2,8 +2,8 @@
 
 /**
  *
- *  @title: NextGen Smart Contract
- *  @date: 29-November-2023
+ *  @title: NextGen 6529 - Core Contract
+ *  @date: 20-December-2023
  *  @version: 10.29
  *  @author: 6529 team
  */
@@ -105,7 +105,7 @@ contract NextGenCore is ERC721Enumerable, ERC2981 {
     constructor(string memory name, string memory symbol, address _adminsContract) ERC721(name, symbol) {
         adminsContract = INextGenAdmins(_adminsContract);
         newCollectionIndex = newCollectionIndex + 1;
-        _setDefaultRoyalty(0x1B1289E34Fe05019511d7b436a5138F361904df0, 690);
+        _setDefaultRoyalty(0xC8ed02aFEBD9aCB14c33B5330c803feacAF01377, 690);
     }
 
     // certain functions can only be called by a global or function admin

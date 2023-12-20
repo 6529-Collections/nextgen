@@ -29,4 +29,17 @@ contract Bytes32TestFunctions {
     function fulfillRandomWordsKeccack(uint256 tokenId, uint256[] memory _randomWords) public view returns (bytes32) {
         return keccak256(abi.encodePacked(_randomWords,tokenId));
     }
+
+    function getKecKec(string memory words, string memory _tokenId) public view returns (bytes32) {
+        return keccak256(bytes.concat(keccak256((abi.encodePacked(words, _tokenId)))));
+    }
+
+    function getConcat(bytes memory _hash) public view returns (bytes32) {
+        return keccak256(abi.encodePacked(_hash));
+    }
+
+    function getMerkle(bytes32 _h1, bytes32 _h2) public view returns (bytes32) {
+        return keccak256(abi.encodePacked(_h1,_h2));
+    }
+
 }
