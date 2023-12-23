@@ -3,8 +3,8 @@
 /**
  *
  *  @title: NextGen 6529 - Core Contract
- *  @date: 20-December-2023
- *  @version: 10.29
+ *  @date: 23-December-2023
+ *  @version: 10.30
  *  @author: 6529 team
  */
 
@@ -17,8 +17,9 @@ import "./IRandomizer.sol";
 import "./INextGenAdmins.sol";
 import "./IMinterContract.sol";
 import "./ERC2981.sol";
+import "./Ownable.sol"; 
 
-contract NextGenCore is ERC721Enumerable, ERC2981 {
+contract NextGenCore is ERC721Enumerable, ERC2981, Ownable {
     using Strings for uint256;
 
     // declare variables
@@ -330,12 +331,6 @@ contract NextGenCore is ERC721Enumerable, ERC2981 {
         adminsContract = INextGenAdmins(_newadminsContract);
     }
 
-    // function to update default royalties
-    
-    function setDefaultRoyalties(address _royaltyAddress, uint96 _bps) public FunctionAdminRequired(this.setDefaultRoyalties.selector) {
-        _setDefaultRoyalty(_royaltyAddress, _bps);
-    }
-
     // Retrieve Functions
 
     // function that overrides supportInterface
@@ -450,7 +445,7 @@ contract NextGenCore is ERC721Enumerable, ERC2981 {
 
     // function to retrieve the generative script of a token
 
-    function retrieveGenerativeScript(uint256 tokenId) public view returns(string memory){
+    function retrieveGenerativeScript(uint256 tokenId) public view returns(string memory) {
         _requireMinted(tokenId);
         string memory scripttext;
         for (uint256 i=0; i < collectionInfo[tokenIdsToCollectionIds[tokenId]].collectionScript.length; i++) {
