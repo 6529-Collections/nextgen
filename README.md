@@ -14,7 +14,7 @@ At a high-level, you can think of NextGen as:
 - With the ability to pass arbitrary data to the contract for specific addresses to customize the outputs
 - With a wide range of minting models, each of which can be assigned to a phase
 
-## Arcitecture
+## Architecture
 
 The NextGen smart contract architecture is as follows:
 
@@ -28,7 +28,11 @@ NextGen currently considers 3 different Randomizer contracts that can be used fo
 - A Randomizer contract that uses ARRNG.
 - A custom-made implementation Randomizer contract.
 
+## Smart contracts
+
+[View here](https://github.com/6529-Collections/nextgen/tree/main/hardhat/smart-contracts)
+
 ## Documentation
 
-[View Full Docs](https://seize-io.gitbook.io/nextgen/)
+[View Docs](https://seize-io.gitbook.io/nextgen/)
 
