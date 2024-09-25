@@ -3,8 +3,8 @@
 /**
  *
  *  @title: NextGen 6529 - Minter Contract
- *  @date: 20-December-2023
- *  @version: 1.10
+ *  @date: 23-September-2024
+ *  @version: 1.11
  *  @author: 6529 team
  */
 
@@ -301,13 +301,20 @@ contract NextGenMinterContract {
         // calculate periods and check if a period has passed in order to allow minting
         uint tDiff = (block.timestamp - timeOfLastMint) / collectionPhases[_collectionID].timePeriod;
         // admins are able to mint after a period passes
-        require(tDiff>=1, "1 mint/period");
+        require(tDiff >= 1, "1 mint/period");
         lastMintDate[_collectionID] = collectionPhases[_collectionID].allowlistStartTime + (collectionPhases[_collectionID].timePeriod * ((gencore.viewCirSupply(_collectionID) - excludeTokensCounter[_collectionID])));
         require(_auctionEndTime >= block.timestamp + 600); // 10mins min auction
         mintToAuctionData[mintIndex] = _auctionEndTime;
         mintToAuctionStatus[mintIndex] = true;
         // token is airdropped to the _recipient address
         gencore.airDropTokens(mintIndex, _recipient, _tokenData, _saltfun_o, _collectionID);
+    }
+
+    // function to update AuctionEndTime
+
+    function updateAuctionEndTime(uint256 _tokenId, uint256 _auctionEndTime) public FunctionAdminRequired(this.updateAuctionEndTime.selector) {
+        require(mintToAuctionStatus[_tokenId] == true);
+        mintToAuctionData[_tokenId] = _auctionEndTime;
     }
 
     // function to exclude a specific no of tokens during sales model 3 or reset lastMintDate
@@ -481,17 +488,15 @@ contract NextGenMinterContract {
         require(success5, "ETH failed");
     }
 
-    // function to update core contract
+    // function to update contracts
 
-    function updateCoreContract(address _gencore) public FunctionAdminRequired(this.updateCoreContract.selector) { 
-        gencore = INextGenCore(_gencore);
-    }
-
-    // function to update admin contract
-
-    function updateAdminContract(address _newadminsContract) public FunctionAdminRequired(this.updateAdminContract.selector) {
-        require(INextGenAdmins(_newadminsContract).isAdminContract() == true, "Contract is not Admin");
-        adminsContract = INextGenAdmins(_newadminsContract);
+    function updateContracts(uint256 _opt, address _contract) public FunctionAdminRequired(this.updateContracts.selector) { 
+        if (_opt == 1) {
+            gencore = INextGenCore(_contract); 
+        } else {
+            require(INextGenAdmins(_contract).isAdminContract() == true, "Contract is not Admin");
+            adminsContract = INextGenAdmins(_contract);
+        }
     }
 
     // function to withdraw any balance from the smart contract

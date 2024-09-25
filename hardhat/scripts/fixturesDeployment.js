@@ -8,6 +8,7 @@ const fixturesDeployment = async () => {
   const addr2 = signersList[2]
   const addr3 = signersList[3]
 
+
   const delegation = await ethers.getContractFactory(
     "DelegationManagementContract",
   )
@@ -19,11 +20,17 @@ const fixturesDeployment = async () => {
   const nextGenAdmins = await ethers.getContractFactory("NextGenAdmins")
   const hhAdmin = await nextGenAdmins.deploy()
 
+  const dependencyContract = await ethers.getContractFactory("DependencyRegistry")
+  const hhDependency = await dependencyContract.deploy(
+    await hhAdmin.getAddress(),
+  )
+
   const nextGenCore = await ethers.getContractFactory("NextGenCore")
   const hhCore = await nextGenCore.deploy(
     "Next Gen Core",
     "NEXTGEN",
     await hhAdmin.getAddress(),
+    await hhDependency.getAddress(),
   )
 
   // This example uses the NXT Randomizer
@@ -42,6 +49,13 @@ const fixturesDeployment = async () => {
     await hhAdmin.getAddress(),
   )
 
+  const nextAuction = await ethers.getContractFactory("NextGenAuctions")
+  const hhAuction = await nextAuction.deploy(
+    await hhMinter.getAddress(),
+    await hhCore.getAddress(),
+    await hhAdmin.getAddress(),
+  )
+
   const contracts = {
     hhAdmin: hhAdmin,
     hhCore: hhCore,
@@ -49,6 +63,8 @@ const fixturesDeployment = async () => {
     hhMinter: hhMinter,
     hhRandomizer: hhRandomizer,
     hhRandoms: hhRandoms,
+    hhDependency: hhDependency,
+    hhAuction: hhAuction,
   }
 
   const signers = {

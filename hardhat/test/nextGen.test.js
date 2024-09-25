@@ -1,5 +1,6 @@
 const {
   loadFixture,
+  time,
 } = require("@nomicfoundation/hardhat-toolbox/network-helpers")
 const { expect } = require("chai")
 const { ethers } = require("hardhat")
@@ -33,6 +34,12 @@ describe("NextGen Tests", function () {
       expect(await contracts.hhRandoms.getAddress()).to.not.equal(
         ethers.ZeroAddress,
       )
+      expect(await contracts.hhAuction.getAddress()).to.not.equal(
+        ethers.ZeroAddress,
+      )
+      expect(await contracts.hhDependency.getAddress()).to.not.equal(
+        ethers.ZeroAddress,
+      )
     })
   })
 
@@ -46,6 +53,7 @@ describe("NextGen Tests", function () {
         "CCO",
         "https://ipfs.io/ipfs/hash/",
         "",
+        "0xb9a5dc0048db9a7d13548781df3cd4b2334606391f75f40c14225a92f4cb3537",
         ["desc"],
       )
     })
@@ -59,6 +67,7 @@ describe("NextGen Tests", function () {
         "CCO",
         "https://ipfs.io/ipfs/hash/",
         "",
+        "0xb9a5dc0048db9a7d13548781df3cd4b2334606391f75f40c14225a92f4cb3537",
         ["desc"],
       )
     })
@@ -72,6 +81,7 @@ describe("NextGen Tests", function () {
         "CCO",
         "https://ipfs.io/ipfs/hash/",
         "",
+        "0xb9a5dc0048db9a7d13548781df3cd4b2334606391f75f40c14225a92f4cb3537",
         ["desc"],
       )
     })
@@ -85,6 +95,21 @@ describe("NextGen Tests", function () {
         "CCO",
         "https://ipfs.io/ipfs/hash/",
         "",
+        "0xb9a5dc0048db9a7d13548781df3cd4b2334606391f75f40c14225a92f4cb3537",
+        ["desc"],
+      )
+    })
+
+    it("#createCollection5", async function () {
+      await contracts.hhCore.createCollection(
+        "Test Collection 5",
+        "Artist 5",
+        "For testing",
+        "www.test.com",
+        "CCO",
+        "https://ipfs.io/ipfs/hash/",
+        "",
+        "0xb9a5dc0048db9a7d13548781df3cd4b2334606391f75f40c14225a92f4cb3537",
         ["desc"],
       )
     })
@@ -93,6 +118,14 @@ describe("NextGen Tests", function () {
       await contracts.hhAdmin.registerCollectionAdmin(
         1,
         signers.addr1.address,
+        true,
+      )
+    })
+
+    it("#registerFunctionAdmin", async function () {
+      await contracts.hhAdmin.registerFunctionAdmin(
+        contracts.hhAuction,
+        '0xd9f303a2',
         true,
       )
     })
@@ -137,12 +170,22 @@ describe("NextGen Tests", function () {
       )
     })
 
+    it("#setCollectionData5", async function () {
+      await contracts.hhCore.setCollectionData(
+        5, // _collectionID
+        signers.addr1.address, // _collectionArtistAddress
+        0, // _maxCollectionPurchases
+        100, // _collectionTotalSupply
+        200, // _setFinalSupplyTimeAfterMint
+      )
+    })
+
   })
 
   context("Set Minter Contract", () => {
     it("#setMinterContract", async function () {
-      await contracts.hhCore.addMinterContract(
-        contracts.hhMinter,
+      await contracts.hhCore.updateContracts(
+        2, contracts.hhMinter,
       )
     })
   })
@@ -168,9 +211,16 @@ describe("NextGen Tests", function () {
 
     it("#setRandomizerContract4", async function () {
       await contracts.hhCore.addRandomizer(
-        3, contracts.hhRandomizer,
+        4, contracts.hhRandomizer,
       )
     })
+
+    it("#setRandomizerContract5", async function () {
+      await contracts.hhCore.addRandomizer(
+        5, contracts.hhRandomizer,
+      )
+    })
+
   })
 
   context("Set Collection Costs and Phases", () => {
@@ -222,6 +272,18 @@ describe("NextGen Tests", function () {
         )
       })
 
+      it("#setCollectionCost5", async function () {
+        await contracts.hhMinter.setCollectionCosts(
+          5, // _collectionID
+          0, // _collectionMintCost 
+          0, // _collectionEndMintCost 
+          0, // _rate
+          10, // _timePeriod
+          0, // _salesOptions
+          '0xD7ACd2a9FD159E69Bb102A1ca21C9a3e3A5F771B', // delAddress
+        )
+      })
+
       it("#setCollectionPhases1", async function () {
         await contracts.hhMinter.setCollectionPhases(
           1, // _collectionID
@@ -262,6 +324,17 @@ describe("NextGen Tests", function () {
           1698138900, // _allowlistEndTime
           1698138900, // _publicStartTime
           1796931278, // _publicEndTime
+          "0x8e3c1713145650ce646f7eccd42c4541ecee8f07040fc1ac36fe071bbfebb870", // _merkleRoot
+        )
+      })
+
+      it("#setCollectionPhases5", async function () {
+        await contracts.hhMinter.setCollectionPhases(
+          5, // _collectionID
+          1727265419, // _allowlistStartTime
+          1727265419, // _allowlistEndTime
+          1727265419, // _publicStartTime
+          1727265419, // _publicEndTime
           "0x8e3c1713145650ce646f7eccd42c4541ecee8f07040fc1ac36fe071bbfebb870", // _merkleRoot
         )
       })
@@ -427,9 +500,74 @@ describe("NextGen Tests", function () {
 
   })
 
+  context("Minting To Auction", () => {
+    it("#mintToAuction", async function () {
+      await contracts.hhMinter.mintAndAuction(
+        signers.owner.address, // _recipient
+        "", // _tokenData
+        1, // _saltfun_o,
+        5, // _collectionId
+        BigInt(1727278204), // _auctionEndTime > time + 600
+      )
+    })
+  })
 
+  context("Set Approval", () => {
+    it("#setApproval", async function () {
+      await contracts.hhCore.setApprovalForAll(
+        contracts.hhAuction, // address
+        true, // approved
+      )
+    })
+  })
 
+  context("Set Collection Auction Data", () => {
+    it("#setCollectionAuction", async function () {
+      await contracts.hhAuction.setCollectionAuctionData(
+        5, // _col
+        BigInt(1000000000000000000), // _minBidPrice
+        5, // _incrPercent
+        200, // _extensionTime
+        signers.addr2.address, // payOut
+        true, // _status
+      )
+    })
+  })
 
+  context("Participate to Auction", () => {
+    it("#participateAuction", async function () {
+      await contracts.hhAuction.participateToAuction(
+        50000000000, // tokenid
+        { value: BigInt(1000000000000000000) }
+      )
+    })
+  })
+
+  context("Highest Bid and Bidder", () => {
+    
+    it("#auctionHighestBid", async function () {
+      const highBid = await contracts.hhAuction.auctionHighestBid(
+        50000000000, // _tokenId
+      )
+      expect(parseInt(highBid)).to.equal(1000000000000000000); // if other fails
+    })
+
+    it("#auctionHighestBidder", async function () {
+      const highBidder = await contracts.hhAuction.auctionHighestBidder(
+        50000000000, // _tokenId
+      )
+      expect(highBidder).to.equal(signers.owner.address); // if other fails
+    })
+
+  })
+
+  context("Claim Auction", () => {
+    it("#claimAuction", async function () {
+      await contracts.hhAuction.claimAuction(
+        50000000000
+      )
+    })
+  })
 
 
 })

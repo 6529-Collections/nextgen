@@ -21,4 +21,7 @@ interface IMinterContract {
     
     // retrieve secondary addresses
     function retrieveSecondaryAddressesAndPercentages(uint256 _collectionID) external view returns(address, address, address, uint256, uint256, uint256, bool);
+
+    // update auction endtime
+    function updateAuctionEndTime(uint256 _tokenId, uint256 _auctionEndTime) external;
 }
