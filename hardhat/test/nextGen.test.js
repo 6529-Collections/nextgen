@@ -1,7 +1,5 @@
-const {
-  loadFixture,
-  time,
-} = require("@nomicfoundation/hardhat-toolbox/network-helpers")
+const { loadFixture } = require("@nomicfoundation/hardhat-toolbox/network-helpers")
+const { time } = require("@nomicfoundation/hardhat-network-helpers");
 const { expect } = require("chai")
 const { ethers } = require("hardhat")
 const fixturesDeployment = require("../scripts/fixturesDeployment.js")
@@ -502,12 +500,13 @@ describe("NextGen Tests", function () {
 
   context("Minting To Auction", () => {
     it("#mintToAuction", async function () {
+      const currentTime = await time.latest();
       await contracts.hhMinter.mintAndAuction(
         signers.owner.address, // _recipient
         "", // _tokenData
         1, // _saltfun_o,
         5, // _collectionId
-        BigInt(1727278204), // _auctionEndTime > time + 600
+        BigInt(currentTime + 610), // _auctionEndTime > time + 600
       )
     })
   })
@@ -528,7 +527,7 @@ describe("NextGen Tests", function () {
         BigInt(1000000000000000000), // _minBidPrice
         5, // _incrPercent
         200, // _extensionTime
-        signers.addr2.address, // payOut
+        signers.addr3.address, // payOut
         true, // _status
       )
     })
@@ -536,7 +535,7 @@ describe("NextGen Tests", function () {
 
   context("Participate to Auction", () => {
     it("#participateAuction", async function () {
-      await contracts.hhAuction.participateToAuction(
+      await contracts.hhAuction.connect(signers.addr1).participateToAuction(
         50000000000, // tokenid
         { value: BigInt(1000000000000000000) }
       )
@@ -556,17 +555,36 @@ describe("NextGen Tests", function () {
       const highBidder = await contracts.hhAuction.auctionHighestBidder(
         50000000000, // _tokenId
       )
-      expect(highBidder).to.equal(signers.owner.address); // if other fails
+      expect(highBidder).to.equal(signers.addr1.address); // if other fails
     })
 
   })
 
   context("Claim Auction", () => {
+    it("#payOutBalanceCheck", async function () {
+      const balance = await network.provider.send("eth_getBalance", [signers.addr3.address, "latest"]);
+      expect(balance).to.equal(BigInt(10000000000000000000000)); // if other fails
+    })
+
     it("#claimAuction", async function () {
+      await time.increase(1005);
       await contracts.hhAuction.claimAuction(
         50000000000
       )
     })
+
+    it("#newOwner", async function () {
+      const newOwner = await contracts.hhCore.ownerOf(
+        50000000000, // _tokenId
+      )
+      expect(newOwner).to.equal(signers.addr1.address); // if other fails
+    })
+
+    it("#payOutBalanceAfterClaim", async function () {
+      const balance = await network.provider.send("eth_getBalance", [signers.addr3.address, "latest"]);
+      expect(balance).to.be.gt(BigInt(10000000000000000000000)); // if other fails
+    })
+
   })
 
 
