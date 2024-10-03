@@ -38,6 +38,9 @@ describe("NextGen Tests", function () {
       expect(await contracts.hhDependency.getAddress()).to.not.equal(
         ethers.ZeroAddress,
       )
+      expect(await contracts.hhReentrant.getAddress()).to.not.equal(
+        ethers.ZeroAddress,
+      )
     })
   })
 
@@ -509,6 +512,28 @@ describe("NextGen Tests", function () {
         BigInt(currentTime + 610), // _auctionEndTime > time + 600
       )
     })
+
+    it("#mintToAuction2", async function () {
+      const currentTime = await time.latest();
+      await contracts.hhMinter.mintAndAuction(
+        signers.owner.address, // _recipient
+        "", // _tokenData
+        1, // _saltfun_o,
+        5, // _collectionId
+        BigInt(currentTime + 5000), // _auctionEndTime > time + 600
+      )
+    })
+
+    it("#mintToAuction2", async function () {
+      const currentTime = await time.latest();
+      await contracts.hhMinter.mintAndAuction(
+        signers.owner.address, // _recipient
+        "", // _tokenData
+        1, // _saltfun_o,
+        5, // _collectionId
+        BigInt(currentTime + 5000), // _auctionEndTime > time + 600
+      )
+    })
   })
 
   context("Set Approval", () => {
@@ -534,13 +559,41 @@ describe("NextGen Tests", function () {
   })
 
   context("Participate to Auction", () => {
+    it("#participateAuctionZeroBid", async function () {
+      await expect(
+        contracts.hhAuction.connect(signers.addr2).participateToAuction(
+          50000000000, // tokenid
+          { value: 0 } // zero bid
+        )
+      ).to.be.revertedWith("Equal or Higher than starting bid");
+    });
+
+    it("#participateAuctionInsufficientBid", async function () {
+      await expect(
+        contracts.hhAuction.connect(signers.addr2).participateToAuction(
+          50000000000, // tokenid
+          { value: BigInt(500000000000000000) } // less than min bid
+        )
+      ).to.be.revertedWith("Equal or Higher than starting bid");
+    });
+
     it("#participateAuction", async function () {
       await contracts.hhAuction.connect(signers.addr1).participateToAuction(
         50000000000, // tokenid
         { value: BigInt(1000000000000000000) }
       )
     })
-  })
+
+    it("participateAuction2", async function () {
+
+      await time.increase(550);
+
+      await contracts.hhAuction.connect(signers.addr1).participateToAuction(
+        50000000000, // tokenid
+        { value: BigInt(1050000000000000000) }
+      )
+    })
+  });
 
   context("Highest Bid and Bidder", () => {
     
@@ -548,7 +601,7 @@ describe("NextGen Tests", function () {
       const highBid = await contracts.hhAuction.auctionHighestBid(
         50000000000, // _tokenId
       )
-      expect(parseInt(highBid)).to.equal(1000000000000000000); // if other fails
+      expect(parseInt(highBid)).to.equal(1050000000000000000); // if other fails
     })
 
     it("#auctionHighestBidder", async function () {
@@ -564,6 +617,12 @@ describe("NextGen Tests", function () {
     it("#payOutBalanceCheck", async function () {
       const balance = await network.provider.send("eth_getBalance", [signers.addr3.address, "latest"]);
       expect(balance).to.equal(BigInt(10000000000000000000000)); // if other fails
+    })
+
+    it("#claimAuctionBeforeEndTime", async function () {
+      await expect(
+        contracts.hhAuction.claimAuction(50000000000)
+      ).to.be.revertedWith("err");
     })
 
     it("#claimAuction", async function () {
@@ -586,6 +645,70 @@ describe("NextGen Tests", function () {
     })
 
   })
+
+  context("Check reentrancy", () => {
+
+    it("#setCollectionAuction", async function () {
+      await contracts.hhAuction.setCollectionAuctionData(
+        5, // _col
+        BigInt(1000000000000000000), // _minBidPrice
+        5, // _incrPercent
+        200, // _extensionTime
+        contracts.hhReentrant.getAddress(), // payOut Malicous contract
+        true, // _status
+      )
+    })
+
+    it("#participateAuction2", async function () {
+      await contracts.hhAuction.connect(signers.addr2).participateToAuction(
+        50000000001, // tokenid
+        { value: BigInt(1000000000000000000) }
+      )
+    })
+
+    it("#participateAuction3", async function () {
+      await contracts.hhAuction.connect(signers.addr2).participateToAuction(
+        50000000002, // tokenid
+        { value: BigInt(1000000000000000000) }
+      )
+    })
+
+    it("#checkReentrancy", async function () {
+      await time.increase(15000);
+      await expect(contracts.hhReentrant.connect(signers.addr3).attack()).to.be.reverted;
+    })
+
+    it("#setCollectionAuction", async function () {
+      await contracts.hhAuction.setCollectionAuctionData(
+        5, // _col
+        BigInt(1000000000000000000), // _minBidPrice
+        5, // _incrPercent
+        200, // _extensionTime
+        signers.addr3.address, // payOut
+        true, // _status
+      )
+    })
+
+    it("#claimAuction", async function () {
+      await contracts.hhAuction.claimAuction(
+        50000000001
+      )
+    })
+
+    it("#claimAuctionAgain", async function () {
+      await expect(
+        contracts.hhAuction.claimAuction(50000000001)
+      ).to.be.revertedWith("err");
+    })
+
+    it("#newOwner", async function () {
+      const newOwner = await contracts.hhCore.ownerOf(
+        50000000001, // _tokenId
+      )
+      expect(newOwner).to.equal(signers.addr2.address); // if other fails
+    })
+
+  });
 
 
 })

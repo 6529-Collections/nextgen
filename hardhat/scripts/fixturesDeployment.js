@@ -9,9 +9,7 @@ const fixturesDeployment = async () => {
   const addr3 = signersList[3]
 
 
-  const delegation = await ethers.getContractFactory(
-    "DelegationManagementContract",
-  )
+  const delegation = await ethers.getContractFactory("DelegationManagementContract")
   const hhDelegation = await delegation.deploy()
 
   const randoms = await ethers.getContractFactory("randomPool")
@@ -56,6 +54,12 @@ const fixturesDeployment = async () => {
     await hhAdmin.getAddress(),
   )
 
+  const reentrant = await ethers.getContractFactory("MaliciousReentrant")
+  const hhReentrant = await reentrant.deploy(
+    await hhAuction.getAddress(),
+    50000000001
+  )
+
   const contracts = {
     hhAdmin: hhAdmin,
     hhCore: hhCore,
@@ -65,6 +69,7 @@ const fixturesDeployment = async () => {
     hhRandoms: hhRandoms,
     hhDependency: hhDependency,
     hhAuction: hhAuction,
+    hhReentrant: hhReentrant
   }
 
   const signers = {
