@@ -3,8 +3,8 @@
 /**
  *
  *  @title: Auction Contract for 6529 NextGen
- *  @date: 24-September-2024
- *  @version: 1.8
+ *  @date: 11-August-2024
+ *  @version: 1.9
  *  @author: 6529 team
  */
 
@@ -63,7 +63,7 @@ contract NextGenAuctions is ReentrancyGuard {
     // colletion auction data
     mapping (uint256 => auctionStr) public auctionData;
 
-    // set min price per collection
+    // set auction collection data per collection
 
     function setCollectionAuctionData(uint256 _col, uint256 _minBidPrice, uint256 _incrPercent, uint256 _extensionTime, address _payOutAddress, bool _status) public FunctionAdminRequired(this.setCollectionAuctionData.selector) {
         require(coreContract.retrievewereDataAdded(_col) == true, "Add data");
@@ -78,7 +78,7 @@ contract NextGenAuctions is ReentrancyGuard {
     function participateToAuction(uint256 _tokenid) public payable {
         uint256 colId = coreContract.viewColIDforTokenID(_tokenid);
         uint256 endTime = minterContract.getAuctionEndTime(_tokenid);
-        require(block.timestamp <=  endTime && minterContract.getAuctionStatus(_tokenid) == true, "No Active Auction");
+        require(block.timestamp >= minterContract.getAuctionStartTime(_tokenid) && block.timestamp <=  endTime && minterContract.getAuctionStatus(_tokenid) == true, "No Active Auction");
         require(auctionData[colId].status == true, "Set auction data");
         uint256 bid;
         address currentBidder;
@@ -96,7 +96,7 @@ contract NextGenAuctions is ReentrancyGuard {
         }
         // extend auction if less than X remaining mins
         if (endTime - block.timestamp <= auctionData[colId].extensionTime ) {
-            minterContract.updateAuctionEndTime(_tokenid, block.timestamp + auctionData[colId].extensionTime);
+            minterContract.updateAuctionEndTime(_tokenid, endTime + auctionData[colId].extensionTime);
         }
         // register the new bid;
         auctionHighestBid[_tokenid] = msg.value;

@@ -13,6 +13,9 @@ interface IMinterContract {
     // retrieve auction end time
     function getAuctionEndTime(uint256 _tokenId) external view returns (uint);
 
+    // retrieve auctions start time
+    function getAuctionStartTime(uint256 _tokenId) external view returns (uint);
+
     // retrieve auction status
     function getAuctionStatus(uint256 _tokenId) external view  returns (bool);
 

@@ -3,8 +3,8 @@
 /**
  *
  *  @title: NextGen 6529 - Minter Contract
- *  @date: 23-September-2024
- *  @version: 1.11
+ *  @date: 11-August-2024
+ *  @version: 1.12
  *  @author: 6529 team
  */
 
@@ -110,7 +110,10 @@ contract NextGenMinterContract {
     mapping (uint256 => collectionSecondaryAddresses) private collectionArtistSecondaryAddresses;
 
     // mapping that holds the auction end time when a token is sent to auction
-    mapping (uint256 => uint) private mintToAuctionData;
+    mapping (uint256 => uint) private mintToAuctionEndDate;
+
+    // mapping that holds the auction start time when a token is sent to auction
+    mapping (uint256 => uint) private mintToAuctionStartDate;
 
     // mapping that holds the auction status when a token is sent to auction
     mapping (uint256 => bool) private mintToAuctionStatus;
@@ -283,38 +286,24 @@ contract NextGenMinterContract {
 
     // mint and auction
     
-    function mintAndAuction(address _recipient, string memory _tokenData, uint256 _saltfun_o, uint256 _collectionID, uint _auctionEndTime) public FunctionAdminRequired(this.mintAndAuction.selector) {
+    function mintAndAuction(address _recipient, string memory _tokenData, uint256 _saltfun_o, uint256 _collectionID, uint _auctionStartTime) public FunctionAdminRequired(this.mintAndAuction.selector) {
         require(gencore.retrievewereDataAdded(_collectionID) == true, "Add data");
         uint256 collectionTokenMintIndex;
         collectionTokenMintIndex = gencore.viewTokensIndexMin(_collectionID) + gencore.viewCirSupply(_collectionID);
         require(collectionTokenMintIndex <= gencore.viewTokensIndexMax(_collectionID), "No supply");
         uint256 mintIndex = gencore.viewTokensIndexMin(_collectionID) + gencore.viewCirSupply(_collectionID);
-        uint timeOfLastMint;
-        // 1 token per period can be minted and send to auction
-        // time period can be set for any sales model
-        if (lastMintDate[_collectionID] == 0) {
-        // for public sale set the allowliststarttime the same time as publicstarttime
-            timeOfLastMint = collectionPhases[_collectionID].allowlistStartTime - collectionPhases[_collectionID].timePeriod;
-        } else {
-            timeOfLastMint =  lastMintDate[_collectionID];
-        }
-        // calculate periods and check if a period has passed in order to allow minting
-        uint tDiff = (block.timestamp - timeOfLastMint) / collectionPhases[_collectionID].timePeriod;
-        // admins are able to mint after a period passes
-        require(tDiff >= 1, "1 mint/period");
-        lastMintDate[_collectionID] = collectionPhases[_collectionID].allowlistStartTime + (collectionPhases[_collectionID].timePeriod * ((gencore.viewCirSupply(_collectionID) - excludeTokensCounter[_collectionID])));
-        require(_auctionEndTime >= block.timestamp + 600); // 10mins min auction
-        mintToAuctionData[mintIndex] = _auctionEndTime;
+        mintToAuctionStartDate[mintIndex] = _auctionStartTime;
+        mintToAuctionEndDate[mintIndex] = _auctionStartTime + 600; // 24hrs auctions 86400s
         mintToAuctionStatus[mintIndex] = true;
         // token is airdropped to the _recipient address
         gencore.airDropTokens(mintIndex, _recipient, _tokenData, _saltfun_o, _collectionID);
     }
 
-    // function to update AuctionEndTime
+    // function to update Auction end time in case of an auction extension
 
     function updateAuctionEndTime(uint256 _tokenId, uint256 _auctionEndTime) public FunctionAdminRequired(this.updateAuctionEndTime.selector) {
         require(mintToAuctionStatus[_tokenId] == true);
-        mintToAuctionData[_tokenId] = _auctionEndTime;
+        mintToAuctionEndDate[_tokenId] = _auctionEndTime;
     }
 
     // function to exclude a specific no of tokens during sales model 3 or reset lastMintDate
@@ -560,7 +549,13 @@ contract NextGenMinterContract {
     // retrieve auction end time
 
     function getAuctionEndTime(uint256 _tokenId) external view returns (uint) {
-        return mintToAuctionData[_tokenId];
+        return mintToAuctionEndDate[_tokenId];
+    }
+
+    // retrieve auction start time
+
+    function getAuctionStartTime(uint256 _tokenId) external view returns (uint) {
+        return mintToAuctionStartDate[_tokenId];
     }
 
     // retrieve auction status
